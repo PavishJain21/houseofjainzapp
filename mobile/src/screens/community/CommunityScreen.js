@@ -1,0 +1,975 @@
+import React, { useState, useEffect, useContext } from 'react';
+import {
+  View,
+  Text,
+  FlatList,
+  StyleSheet,
+  TouchableOpacity,
+  Image,
+  RefreshControl,
+  Alert,
+  Modal,
+  TextInput,
+  Share,
+  ActionSheetIOS,
+  Platform,
+  KeyboardAvoidingView,
+  ScrollView,
+  Keyboard,
+  TouchableWithoutFeedback,
+} from 'react-native';
+import * as Location from 'expo-location';
+import { Ionicons } from '@expo/vector-icons';
+import api, { API_BASE_URL } from '../../config/api';
+import { AuthContext } from '../../context/AuthContext';
+import LanguageContext from '../../context/LanguageContext';
+import AudioPlayer from '../../components/AudioPlayer';
+
+export default function CommunityScreen({ navigation }) {
+  const { user } = useContext(AuthContext);
+  const { t } = useContext(LanguageContext);
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [commentModalVisible, setCommentModalVisible] = useState(false);
+  const [selectedPostId, setSelectedPostId] = useState(null);
+  const [commentText, setCommentText] = useState('');
+  const [comments, setComments] = useState([]);
+  const [loadingComments, setLoadingComments] = useState(false);
+  const [userCity, setUserCity] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  useEffect(() => {
+    const initialize = async () => {
+      await getUserLocation();
+      await loadPosts();
+    };
+    initialize();
+  }, []);
+
+  const getUserLocation = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        console.log('Location permission denied');
+        return;
+      }
+
+      const locationData = await Location.getCurrentPositionAsync({});
+      const { latitude, longitude } = locationData.coords;
+      
+      // Reverse geocode to get city name
+      const reverseGeocode = await Location.reverseGeocodeAsync({
+        latitude,
+        longitude,
+      });
+
+      if (reverseGeocode && reverseGeocode.length > 0) {
+        const address = reverseGeocode[0];
+        const cityName = address.city || address.district || address.subregion || address.region || null;
+        setUserCity(cityName);
+        console.log('User city detected:', cityName);
+      }
+    } catch (error) {
+      console.error('Error getting user location:', error);
+    }
+  };
+
+
+  const loadPosts = async (page = 1, append = false) => {
+    // Prevent duplicate requests
+    if (append && loadingMore) return;
+    if (!append && loading) return;
+    
+    if (append) {
+      setLoadingMore(true);
+    } else {
+      setLoading(true);
+      setCurrentPage(1);
+      setHasMore(true);
+    }
+
+    try {
+      const response = await api.get('/community/posts', {
+        params: { page, limit: 10 },
+      });
+      
+      let newPosts = response.data.posts || [];
+      const pagination = response.data.pagination || {};
+      
+      // Sort posts: same city first, then others (only for first page)
+      if (userCity && page === 1) {
+        newPosts = newPosts.sort((a, b) => {
+          const aIsSameCity = a.location && a.location.toLowerCase() === userCity.toLowerCase();
+          const bIsSameCity = b.location && b.location.toLowerCase() === userCity.toLowerCase();
+          
+          if (aIsSameCity && !bIsSameCity) return -1;
+          if (!aIsSameCity && bIsSameCity) return 1;
+          return 0;
+        });
+      }
+      
+      if (append) {
+        setPosts(prevPosts => [...prevPosts, ...newPosts]);
+      } else {
+        setPosts(newPosts);
+      }
+      
+      setHasMore(pagination.hasMore || false);
+      setCurrentPage(page);
+    } catch (error) {
+      console.error('Error loading posts:', error);
+      // Only show alert if it's not a pagination error (400) or if it's the first page
+      if (page === 1) {
+        Alert.alert('Error', error.response?.data?.error || 'Failed to load posts');
+      } else {
+        // For pagination errors, just stop loading more
+        setHasMore(false);
+      }
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+
+  const loadMorePosts = () => {
+    // Prevent loading more if:
+    // - Already loading more
+    // - Currently loading initial posts
+    // - No more posts available
+    // - Posts array is empty (initial load not complete)
+    if (!loadingMore && !loading && hasMore && posts.length > 0) {
+      loadPosts(currentPage + 1, true);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    // Reset pagination state
+    setCurrentPage(1);
+    setHasMore(true);
+    await getUserLocation();
+    await loadPosts(1, false);
+    setRefreshing(false);
+  };
+
+  const handleLike = async (postId) => {
+    try {
+      await api.post(`/community/posts/${postId}/like`);
+      // Reload current page to update like status
+      loadPosts(currentPage, false);
+    } catch (error) {
+      console.error('Like error:', error);
+      Alert.alert('Error', 'Failed to like post');
+    }
+  };
+
+  const handleComment = async (postId) => {
+    setSelectedPostId(postId);
+    setCommentText('');
+    setCommentModalVisible(true);
+    
+    // Load comments for this post
+    await loadComments(postId);
+  };
+
+  const loadComments = async (postId, page = 1, append = false) => {
+    setLoadingComments(true);
+    try {
+      const response = await api.get(`/community/posts/${postId}/comments`, {
+        params: { page, limit: 20 },
+      });
+      const newComments = response.data.comments || [];
+      
+      if (append) {
+        setComments(prevComments => [...prevComments, ...newComments]);
+      } else {
+        setComments(newComments);
+      }
+    } catch (error) {
+      console.error('Error loading comments:', error);
+      if (!append) {
+        setComments([]);
+      }
+    } finally {
+      setLoadingComments(false);
+    }
+  };
+
+  const submitComment = async () => {
+    if (!commentText.trim() || !selectedPostId) {
+      return;
+    }
+
+    try {
+      await api.post(`/community/posts/${selectedPostId}/comments`, {
+        content: commentText.trim(),
+      });
+      setCommentText('');
+      // Reload comments to show the new one
+      await loadComments(selectedPostId);
+      // Reload posts to update comment count
+      loadPosts();
+    } catch (error) {
+      console.error('Comment error:', error);
+      Alert.alert('Error', 'Failed to add comment');
+    }
+  };
+
+  const handleMoreOptions = (post) => {
+    // Check if post belongs to current user (using isOwnPost flag from backend or comparing IDs)
+    const isOwnPost = post.isOwnPost || (user && post.user?.id === user.id);
+    const options = ['Cancel', 'Share Post'];
+    const cancelButtonIndex = 0;
+    let destructiveButtonIndex = -1;
+
+    if (isOwnPost) {
+      options.push('Delete Post');
+      destructiveButtonIndex = 2;
+    }
+
+    if (Platform.OS === 'ios') {
+      // Use ActionSheet for iOS
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options,
+          cancelButtonIndex,
+          destructiveButtonIndex,
+        },
+        (buttonIndex) => {
+          if (buttonIndex === 1) {
+            handleShare(post);
+          } else if (buttonIndex === 2 && isOwnPost) {
+            handleDeletePost(post);
+          }
+        }
+      );
+    } else {
+      // Use Alert for Android
+      const buttons = [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Share Post', onPress: () => handleShare(post) },
+      ];
+      
+      if (isOwnPost) {
+        buttons.push({
+          text: 'Delete Post',
+          style: 'destructive',
+          onPress: () => handleDeletePost(post),
+        });
+      }
+
+      Alert.alert(
+        'Post Options',
+        'Choose an action',
+        buttons,
+        { cancelable: true }
+      );
+    }
+  };
+
+  const handleShare = async (post) => {
+    try {
+      let shareMessage = post.content || '';
+      
+      // Add image URL if available
+      if (post.image_url) {
+        shareMessage += `\n\n${post.image_url}`;
+      }
+      
+      // Add author info
+      if (post.user?.name) {
+        shareMessage += `\n\n- ${post.user.name}`;
+      }
+
+      const shareContent = {
+        message: shareMessage,
+        title: `Post by ${post.user?.name || 'User'}`,
+      };
+
+      const result = await Share.share(shareContent);
+      
+      if (result.action === Share.sharedAction) {
+        if (result.activityType) {
+          // Shared with activity type of result.activityType
+          console.log('Shared via', result.activityType);
+        } else {
+          // Shared
+          console.log('Post shared successfully');
+        }
+      } else if (result.action === Share.dismissedAction) {
+        // Dismissed
+        console.log('Share dismissed');
+      }
+    } catch (error) {
+      console.error('Error sharing post:', error);
+      Alert.alert('Error', 'Failed to share post');
+    }
+  };
+
+  const handleDeletePost = async (post) => {
+    Alert.alert(
+      'Delete Post',
+      'Are you sure you want to delete this post? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await api.delete(`/community/posts/${post.id}`);
+              Alert.alert('Success', 'Post deleted successfully');
+              // Reload posts to update the list
+              loadPosts();
+            } catch (error) {
+              console.error('Error deleting post:', error);
+              Alert.alert(
+                'Error',
+                error.response?.data?.error || 'Failed to delete post'
+              );
+            }
+          },
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
+  const renderPost = ({ item }) => (
+    <View style={styles.post}>
+      <View style={styles.postHeader}>
+        <View style={styles.userInfo}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>
+              {item.user?.name?.charAt(0).toUpperCase() || 'U'}
+            </Text>
+          </View>
+          <View style={styles.userDetails}>
+            <View style={styles.userNameRow}>
+              <Text style={styles.userName}>{item.user?.name || 'User'}</Text>
+              {userCity && item.location && item.location.toLowerCase() === userCity.toLowerCase() && (
+                <View style={styles.nearbyBadge}>
+                  <Text style={styles.nearbyBadgeText}>Nearby</Text>
+                </View>
+              )}
+            </View>
+            {item.location && (
+              <View style={styles.locationContainer}>
+                <Ionicons name="location" size={14} color="#4CAF50" />
+                <Text style={styles.location}>{item.location}</Text>
+              </View>
+            )}
+          </View>
+        </View>
+        <TouchableOpacity 
+          style={styles.moreButton}
+          onPress={() => handleMoreOptions(item)}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="ellipsis-horizontal" size={20} color="#999" />
+        </TouchableOpacity>
+      </View>
+
+      {item.image_url && (
+        <Image 
+          source={{ 
+            uri: item.image_url.startsWith('http') || item.image_url.startsWith('https')
+              ? item.image_url 
+              : `${API_BASE_URL.replace('/api', '')}${item.image_url}` 
+          }} 
+          style={styles.postImage} 
+        />
+      )}
+
+      <Text style={styles.postContent}>{item.content}</Text>
+
+      <View style={styles.postActions}>
+        <TouchableOpacity
+          style={[styles.actionButton, item.isLiked && styles.actionButtonActive]}
+          onPress={() => handleLike(item.id)}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.joinHandsIcon, item.isLiked && styles.joinHandsIconLiked]}>
+            🙏
+          </Text>
+          <Text style={[styles.actionText, item.isLiked && styles.likedText]}>
+            {item.likesCount || 0}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={styles.actionButton}
+          onPress={() => handleComment(item.id)}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="chatbubble-outline" size={22} color="#666" />
+          <Text style={styles.actionText}>{item.commentsCount || 0}</Text>
+        </TouchableOpacity>
+
+        <View style={styles.actionSpacer} />
+        
+        <View style={styles.timeContainer}>
+          <Ionicons name="time-outline" size={14} color="#999" />
+          <Text style={styles.postTime}>
+            {new Date(item.created_at).toLocaleDateString('en-US', { 
+              month: 'short', 
+              day: 'numeric',
+              year: new Date(item.created_at).getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined
+            })}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>{t('community.title')}</Text>
+      </View>
+
+      <FlatList
+        data={posts}
+        renderItem={renderPost}
+        keyExtractor={(item) => item.id.toString()}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+        onEndReached={loadMorePosts}
+        onEndReachedThreshold={0.5}
+        scrollEventThrottle={400}
+        contentContainerStyle={styles.list}
+        ListHeaderComponent={
+          <View style={styles.audioPlayerContainer}>
+            <AudioPlayer
+              audioUrl="https://sqfhtmxufevsidyoofla.supabase.co/storage/v1/object/public/uploads/audio/navkar-mantra-by-lata-mangeshkar.mp3"
+              title="Navkar Mantra"
+            />
+          </View>
+        }
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Ionicons name="people-outline" size={60} color="#ccc" />
+            <Text style={styles.emptyText}>{t('community.noPosts')}</Text>
+            <Text style={styles.emptySubtext}>{t('community.beFirst')}</Text>
+          </View>
+        }
+        ListFooterComponent={
+          loadingMore ? (
+            <View style={styles.loadingMoreContainer}>
+              <Text style={styles.loadingMoreText}>{t('community.loadingMore')}</Text>
+            </View>
+          ) : null
+        }
+      />
+
+      {/* Floating Post Button */}
+      <TouchableOpacity
+        style={styles.floatingPostButton}
+        onPress={() => navigation.navigate('CreatePost')}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="add" size={32} color="#fff" />
+      </TouchableOpacity>
+
+      {/* Comment Modal */}
+      <Modal
+        visible={commentModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => {
+          Keyboard.dismiss();
+          setCommentModalVisible(false);
+        }}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        >
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <View style={styles.modalOverlayInner}>
+              <TouchableWithoutFeedback>
+                <View style={styles.modalContent}>
+                  <View style={styles.modalHeader}>
+                    <Text style={styles.modalTitle}>{t('community.comments')}</Text>
+                    <TouchableOpacity
+                      onPress={() => {
+                        Keyboard.dismiss();
+                        setCommentModalVisible(false);
+                        setComments([]);
+                        setCommentText('');
+                      }}
+                      style={styles.closeButton}
+                    >
+                      <Ionicons name="close" size={24} color="#666" />
+                    </TouchableOpacity>
+                  </View>
+                  
+                  {/* Comments List */}
+                  <ScrollView 
+                    style={styles.commentsList}
+                    keyboardShouldPersistTaps="handled"
+                    contentContainerStyle={styles.commentsListContent}
+                    showsVerticalScrollIndicator={true}
+                  >
+                    {loadingComments ? (
+                      <Text style={styles.loadingText}>{t('community.loadingComments')}</Text>
+                    ) : comments.length === 0 ? (
+                      <Text style={styles.noCommentsText}>{t('community.noComments')}</Text>
+                    ) : (
+                      comments.map((item) => (
+                        <View key={item.id} style={styles.commentItem}>
+                          <View style={styles.commentHeader}>
+                            <View style={styles.commentAvatar}>
+                              <Text style={styles.commentAvatarText}>
+                                {item.user?.name?.charAt(0).toUpperCase() || 'U'}
+                              </Text>
+                            </View>
+                            <View style={styles.commentInfo}>
+                              <Text style={styles.commentUserName}>{item.user?.name || 'User'}</Text>
+                              <Text style={styles.commentTime}>
+                                {new Date(item.created_at).toLocaleDateString()}
+                              </Text>
+                            </View>
+                          </View>
+                          <Text style={styles.commentContent}>{item.content}</Text>
+                        </View>
+                      ))
+                    )}
+                  </ScrollView>
+                  
+                  {/* Add Comment Section - Always visible at bottom */}
+                  <View style={styles.addCommentSection}>
+                    <View style={styles.commentInputContainer}>
+                      <TextInput
+                        style={styles.commentInput}
+                        placeholder={t('community.writeComment')}
+                        value={commentText}
+                        onChangeText={setCommentText}
+                        multiline
+                        numberOfLines={3}
+                        textAlignVertical="top"
+                        returnKeyType="done"
+                        blurOnSubmit={false}
+                      />
+                      {commentText.trim() && (
+                        <TouchableOpacity
+                          style={styles.dismissKeyboardButton}
+                          onPress={Keyboard.dismiss}
+                        >
+                          <Ionicons name="keyboard-outline" size={20} color="#666" />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                    
+                    <TouchableOpacity
+                      style={[styles.submitButton, !commentText.trim() && styles.submitButtonDisabled]}
+                      onPress={submitComment}
+                      disabled={!commentText.trim()}
+                    >
+                      <Text style={styles.submitButtonText}>{t('community.postComment')}</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </TouchableWithoutFeedback>
+            </View>
+          </TouchableWithoutFeedback>
+        </KeyboardAvoidingView>
+      </Modal>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f8f9fa',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    paddingTop: 50,
+    paddingBottom: 18,
+    backgroundColor: '#fff',
+    borderBottomWidth: 0,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 4,
+    zIndex: 10,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#1a1a1a',
+    letterSpacing: -0.5,
+  },
+  floatingPostButton: {
+    position: 'absolute',
+    bottom: 24,
+    right: 24,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#4CAF50',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#4CAF50',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 50,
+    marginTop: 120,
+  },
+  emptyText: {
+    fontSize: 20,
+    color: '#666',
+    marginTop: 20,
+    fontWeight: '700',
+  },
+  emptySubtext: {
+    fontSize: 15,
+    color: '#999',
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  list: {
+    padding: 12,
+    paddingBottom: 100,
+  },
+  audioPlayerContainer: {
+    marginBottom: 16,
+    marginHorizontal: 2,
+  },
+  post: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 20,
+    marginHorizontal: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: '#f0f0f0',
+  },
+  postHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 14,
+  },
+  userInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  avatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#4CAF50',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+    shadowColor: '#4CAF50',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  avatarText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 22,
+  },
+  userDetails: {
+    flex: 1,
+  },
+  userNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+    flexWrap: 'wrap',
+  },
+  userName: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1a1a1a',
+    marginRight: 8,
+    letterSpacing: -0.3,
+  },
+  nearbyBadge: {
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  nearbyBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  locationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  location: {
+    fontSize: 13,
+    color: '#666',
+    marginLeft: 4,
+    fontWeight: '500',
+  },
+  moreButton: {
+    padding: 8,
+    marginLeft: 8,
+  },
+  postImage: {
+    width: '100%',
+    height: 280,
+    borderRadius: 16,
+    marginBottom: 14,
+    marginTop: 10,
+    resizeMode: 'cover',
+    backgroundColor: '#f0f0f0',
+  },
+  postContent: {
+    fontSize: 16,
+    color: '#2c2c2c',
+    marginBottom: 14,
+    lineHeight: 24,
+    fontWeight: '400',
+  },
+  postActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 14,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#f5f5f5',
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 20,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: '#f8f9fa',
+  },
+  actionButtonActive: {
+    backgroundColor: '#fff5f5',
+  },
+  actionText: {
+    marginLeft: 6,
+    fontSize: 15,
+    color: '#666',
+    fontWeight: '600',
+  },
+  joinHandsIcon: {
+    fontSize: 22,
+    color: '#666',
+  },
+  joinHandsIconLiked: {
+    opacity: 1,
+  },
+  likedText: {
+    color: '#4CAF50',
+    fontWeight: '700',
+  },
+  actionSpacer: {
+    flex: 1,
+  },
+  timeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    backgroundColor: '#f8f9fa',
+  },
+  postTime: {
+    fontSize: 12,
+    color: '#999',
+    marginLeft: 4,
+    fontWeight: '500',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalOverlayInner: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    maxHeight: '90%',
+    minHeight: '60%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 10,
+    flexDirection: 'column',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#1a1a1a',
+    letterSpacing: -0.5,
+  },
+  closeButton: {
+    padding: 5,
+  },
+  commentsList: {
+    flex: 1,
+    marginBottom: 10,
+  },
+  commentsListContent: {
+    paddingBottom: 10,
+  },
+  commentItem: {
+    padding: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f5f5f5',
+    marginBottom: 10,
+    borderRadius: 12,
+    backgroundColor: '#fafafa',
+  },
+  commentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  commentAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#4CAF50',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  commentAvatarText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  commentInfo: {
+    flex: 1,
+  },
+  commentUserName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+  },
+  commentTime: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 2,
+  },
+  commentContent: {
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 20,
+    marginLeft: 42,
+  },
+  loadingText: {
+    textAlign: 'center',
+    color: '#999',
+    padding: 20,
+  },
+  noCommentsText: {
+    textAlign: 'center',
+    color: '#999',
+    padding: 20,
+    fontStyle: 'italic',
+  },
+  addCommentSection: {
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+    paddingTop: 12,
+    paddingBottom: Platform.OS === 'ios' ? 10 : 5,
+    backgroundColor: '#fff',
+  },
+  commentInputContainer: {
+    position: 'relative',
+    marginBottom: 12,
+  },
+  commentInput: {
+    borderWidth: 1.5,
+    borderColor: '#e0e0e0',
+    borderRadius: 16,
+    padding: 16,
+    paddingRight: 45,
+    fontSize: 16,
+    minHeight: 60,
+    maxHeight: 100,
+    textAlignVertical: 'top',
+    backgroundColor: '#fafafa',
+  },
+  dismissKeyboardButton: {
+    position: 'absolute',
+    right: 12,
+    top: 12,
+    padding: 5,
+    zIndex: 10,
+  },
+  submitButton: {
+    backgroundColor: '#4CAF50',
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    shadowColor: '#4CAF50',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+  submitButtonDisabled: {
+    opacity: 0.5,
+  },
+  submitButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  loadingMoreContainer: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  loadingMoreText: {
+    color: '#999',
+    fontSize: 14,
+  },
+});
+

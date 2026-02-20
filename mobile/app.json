@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "House of Jainz",
+    "slug": "house-of-jainz",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#4CAF50"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.houseofjainz.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#4CAF50"
+      },
+      "package": "com.houseofjainz.app"
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "scheme": "houseofjainz"
+  }
+}
