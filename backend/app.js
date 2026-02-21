@@ -22,17 +22,12 @@ const adminPayoutsRoutes = require('./routes/admin-payouts');
 
 const app = express();
 
-// Middleware - CORS: allow localhost (Expo web), mobile, Netlify
-const corsOptions = {
-  origin: [
-    /^http:\/\/localhost(:\d+)?$/,   // http://localhost:8081, :3000, etc.
-    /^http:\/\/127\.0\.0\.1(:\d+)?$/,
-    /^https:\/\/.*\.netlify\.app$/,   // Netlify preview/production
-  ],
+// Middleware - CORS: allow all origins (fixes preflight for Cloudflare Tunnel, localhost, etc.)
+app.use(cors({
+  origin: '*',
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Cron-Secret'],
-};
-app.use(cors(corsOptions));
+}));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 

@@ -6,6 +6,21 @@
     # NODE_ENV in code is a false positive - it's not a secret, just an env var reference
     SECRETS_SCAN_OMIT_KEYS = "NODE_ENV"
 
+# CORS headers for API (handles preflight before function)
+[[headers]]
+  for = "/api/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+    Access-Control-Allow-Headers = "Content-Type, Authorization, X-Cron-Secret"
+
+[[headers]]
+  for = "/api"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+    Access-Control-Allow-Headers = "Content-Type, Authorization, X-Cron-Secret"
+
 # Proxy /api and /api/* to the serverless function (preserves path for Express)
 [[redirects]]
   from = "/api/*"
