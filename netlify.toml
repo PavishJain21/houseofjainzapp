@@ -6,8 +6,9 @@
 
 [[redirects]]
   from = "/api/*"
-  to = "/.netlify/functions/api"
+  to = "/.netlify/functions/api/api/:splat"
   status = 200
+  force = true
 
 # SPA - must come after /api/* so API routes are not caught
 [[redirects]]

@@ -18,7 +18,9 @@ function getCorsHeaders(event) {
   return headers;
 }
 
-const handler = serverless(app);
+const handler = serverless(app, {
+  basePath: '/.netlify/functions/api',
+});
 
 exports.handler = async (event, context) => {
   const corsHeaders = getCorsHeaders(event);
