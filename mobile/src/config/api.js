@@ -1,21 +1,11 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Update this with your backend URL
-// For physical devices, use your computer's IP address instead of localhost
-// Example: 'http://192.168.1.100:5000/api'
-// For web, localhost works fine
+// Backend API URL (Netlify deployment)
+const API_URL = 'https://devserver-main--unique-crostata-cb0a3f.netlify.app/api';
+
 const getApiUrl = () => {
-  if (typeof window !== 'undefined') {
-    // Running on web
-    return __DEV__ 
-      ? 'http://192.168.1.2:5000/api' 
-      : 'https://your-production-url.com/api';
-  }
-  // Running on mobile
-  return __DEV__ 
-    ? 'http://192.168.1.2:5000/api' 
-    : 'https://your-production-url.com/api';
+  return API_URL;
 };
 
 export const API_BASE_URL = getApiUrl();
