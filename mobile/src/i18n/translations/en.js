@@ -42,6 +42,10 @@ export default {
     loginSuccess: 'Login successful',
     registerSuccess: 'Registration successful',
     logoutConfirm: 'Are you sure you want to logout?',
+    emailRequired: 'Email is required',
+    emailInvalid: 'Please enter a valid email address',
+    passwordRequired: 'Password is required',
+    passwordMinLength: 'Password must be at least 6 characters',
   },
 
   // Community

@@ -141,6 +141,7 @@ export default function AdminProductsScreen({ route, navigation }) {
         <TextInput
           style={styles.searchInput}
           placeholder="Search products..."
+          placeholderTextColor="#666"
           value={search}
           onChangeText={setSearch}
         />

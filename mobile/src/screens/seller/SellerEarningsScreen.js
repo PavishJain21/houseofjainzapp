@@ -151,6 +151,7 @@ export default function SellerEarningsScreen({ navigation }) {
             value={bankDetails.accountHolderName}
             onChangeText={(text) => setBankDetails({ ...bankDetails, accountHolderName: text })}
             placeholder="Full Name"
+            placeholderTextColor="#666"
           />
 
           <Text style={styles.label}>Bank Account Number *</Text>
@@ -159,6 +160,7 @@ export default function SellerEarningsScreen({ navigation }) {
             value={bankDetails.bankAccountNumber}
             onChangeText={(text) => setBankDetails({ ...bankDetails, bankAccountNumber: text })}
             placeholder="Account Number"
+            placeholderTextColor="#666"
             keyboardType="numeric"
           />
 
@@ -177,6 +179,7 @@ export default function SellerEarningsScreen({ navigation }) {
             value={bankDetails.bankName}
             onChangeText={(text) => setBankDetails({ ...bankDetails, bankName: text })}
             placeholder="Bank Name"
+            placeholderTextColor="#666"
           />
 
           <Text style={styles.label}>Branch Name</Text>
@@ -185,6 +188,7 @@ export default function SellerEarningsScreen({ navigation }) {
             value={bankDetails.branchName}
             onChangeText={(text) => setBankDetails({ ...bankDetails, branchName: text })}
             placeholder="Branch Name"
+            placeholderTextColor="#666"
           />
 
           <Text style={styles.label}>UPI ID (Optional)</Text>
@@ -193,6 +197,7 @@ export default function SellerEarningsScreen({ navigation }) {
             value={bankDetails.upiId}
             onChangeText={(text) => setBankDetails({ ...bankDetails, upiId: text })}
             placeholder="your@upi"
+            placeholderTextColor="#666"
           />
 
           <TouchableOpacity

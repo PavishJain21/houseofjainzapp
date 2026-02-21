@@ -129,6 +129,7 @@ export default function AdminShopsScreen({ navigation }) {
         <TextInput
           style={styles.searchInput}
           placeholder="Search shops..."
+          placeholderTextColor="#666"
           value={search}
           onChangeText={setSearch}
         />

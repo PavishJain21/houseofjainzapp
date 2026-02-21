@@ -9,6 +9,7 @@ import {
   ScrollView,
 } from 'react-native';
 import * as Location from 'expo-location';
+import { getLocationWithFallback } from '../../utils/location';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../config/api';
 
@@ -29,7 +30,7 @@ export default function CreateShopScreen({ navigation }) {
       }
 
       setLoading(true);
-      const locationData = await Location.getCurrentPositionAsync({});
+      const locationData = await getLocationWithFallback({});
       const { latitude, longitude } = locationData.coords;
 
       // Reverse geocode to get readable address
@@ -61,7 +62,10 @@ export default function CreateShopScreen({ navigation }) {
         setLocation(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to get location');
+      const msg = error?.message === 'LOCATION_SERVICES_DISABLED'
+        ? 'Please enable Location Services in your device settings.'
+        : 'Failed to get location. Please try again.';
+      Alert.alert('Error', msg);
     } finally {
       setLoading(false);
     }
@@ -124,6 +128,7 @@ export default function CreateShopScreen({ navigation }) {
         <TextInput
           style={styles.input}
           placeholder="Shop Name *"
+          placeholderTextColor="#666"
           value={name}
           onChangeText={setName}
         />
@@ -131,6 +136,7 @@ export default function CreateShopScreen({ navigation }) {
         <TextInput
           style={[styles.input, styles.textArea]}
           placeholder="Description (Optional)"
+          placeholderTextColor="#666"
           value={description}
           onChangeText={setDescription}
           multiline
@@ -142,6 +148,7 @@ export default function CreateShopScreen({ navigation }) {
           <TextInput
             style={[styles.input, styles.locationInput]}
             placeholder="Location (City) *"
+            placeholderTextColor="#666"
             value={location}
             onChangeText={setLocation}
           />
@@ -157,6 +164,7 @@ export default function CreateShopScreen({ navigation }) {
         <TextInput
           style={[styles.input, styles.textArea]}
           placeholder="Full Address (Optional)"
+          placeholderTextColor="#666"
           value={address}
           onChangeText={setAddress}
           multiline
@@ -167,6 +175,7 @@ export default function CreateShopScreen({ navigation }) {
         <TextInput
           style={styles.input}
           placeholder="Phone Number (Optional)"
+          placeholderTextColor="#666"
           value={phone}
           onChangeText={setPhone}
           keyboardType="phone-pad"

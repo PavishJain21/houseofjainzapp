@@ -127,6 +127,7 @@ export default function AdminUsersScreen({ navigation }) {
         <TextInput
           style={styles.searchInput}
           placeholder="Search users..."
+          placeholderTextColor="#666"
           value={search}
           onChangeText={setSearch}
         />

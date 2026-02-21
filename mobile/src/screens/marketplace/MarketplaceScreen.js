@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import * as Location from 'expo-location';
+import { getLocationWithFallback } from '../../utils/location';
 import { Ionicons } from '@expo/vector-icons';
 import LanguageContext from '../../context/LanguageContext';
 import api from '../../config/api';
@@ -59,7 +60,7 @@ export default function MarketplaceScreen({ navigation }) {
         return null;
       }
 
-      const locationData = await Location.getCurrentPositionAsync({
+      const locationData = await getLocationWithFallback({
         accuracy: Location.Accuracy.Balanced,
       });
       const { latitude, longitude } = locationData.coords;
@@ -108,7 +109,10 @@ export default function MarketplaceScreen({ navigation }) {
       return null;
     } catch (error) {
       console.error('Error getting user location:', error);
-      Alert.alert('Error', 'Failed to get your location. Please try again.');
+      const msg = error?.message === 'LOCATION_SERVICES_DISABLED'
+        ? 'Please enable Location Services in your device settings.'
+        : 'Failed to get your location. Please try again.';
+      Alert.alert('Error', msg);
       setGettingLocation(false);
       return null;
     }
@@ -265,6 +269,7 @@ export default function MarketplaceScreen({ navigation }) {
         <TextInput
           style={styles.searchInput}
           placeholder={t('marketplace.searchByLocation') || 'Search by location'}
+          placeholderTextColor="#666"
           value={location}
           onChangeText={setLocation}
           onSubmitEditing={() => loadShops(1, false)}

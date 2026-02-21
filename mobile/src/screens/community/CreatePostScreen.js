@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
+import { getLocationWithFallback } from '../../utils/location';
 import * as FileSystem from 'expo-file-system';
 import { Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,6 +20,7 @@ import api from '../../config/api';
 export default function CreatePostScreen({ navigation }) {
   const [content, setContent] = useState('');
   const [image, setImage] = useState(null);
+  const [imageBase64, setImageBase64] = useState(null); // Android: base64 from picker (content:// URIs can't be read)
   const [location, setLocation] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -29,15 +31,19 @@ export default function CreatePostScreen({ navigation }) {
       return;
     }
 
+    // On Android, get base64 from picker - content:// URIs fail with FormData & FileSystem.readAsStringAsync
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [4, 3],
       quality: 0.8,
+      base64: Platform.OS === 'android',
     });
 
     if (!result.canceled) {
-      setImage(result.assets[0].uri);
+      const asset = result.assets[0];
+      setImage(asset.uri);
+      setImageBase64(Platform.OS === 'android' && asset.base64 ? asset.base64 : null);
     }
   };
 
@@ -49,7 +55,7 @@ export default function CreatePostScreen({ navigation }) {
         return;
       }
 
-      const locationData = await Location.getCurrentPositionAsync({});
+      const locationData = await getLocationWithFallback({});
       const { latitude, longitude } = locationData.coords;
       
       // Reverse geocode to get city name
@@ -68,7 +74,10 @@ export default function CreatePostScreen({ navigation }) {
       }
     } catch (error) {
       console.error('Location error:', error);
-      Alert.alert('Error', 'Failed to get location. Please try again.');
+      const msg = error?.message === 'LOCATION_SERVICES_DISABLED'
+        ? 'Please enable Location Services in your device settings.'
+        : 'Failed to get location. Please try again.';
+      Alert.alert('Error', msg);
     }
   };
 
@@ -104,85 +113,75 @@ export default function CreatePostScreen({ navigation }) {
 
           console.log('File extension:', fileExtension, 'MIME type:', mimeType);
 
-          // Use FormData as primary method, base64 as fallback
+          // Android: content:// URIs fail with FormData & FileSystem - use base64 from picker
+          // iOS: try FormData first, fallback to FileSystem.readAsStringAsync base64
           let uploadSuccess = false;
-          
-          // Try FormData first
-          try {
-            console.log('Using FormData to upload image');
-            console.log('Platform:', Platform.OS);
-            console.log('Image URI:', image);
-            console.log('MIME type:', mimeType);
-            console.log('File extension:', fileExtension);
-            
-            const imageFormData = new FormData();
-            imageFormData.append('image', {
-              uri: image,
-              type: mimeType,
-              name: `photo.${fileExtension}`,
-            });
-            
-            const uploadResponse = await api.post('/community/upload-image', imageFormData);
-            console.log('Image upload response:', uploadResponse.data);
-            
-            if (uploadResponse.data && uploadResponse.data.imageUrl) {
-              imageUrl = uploadResponse.data.imageUrl;
-              console.log('Image uploaded successfully via FormData, URL:', imageUrl);
-              uploadSuccess = true;
-            } else {
-              throw new Error('No image URL returned from upload');
-            }
-          } catch (formDataError) {
-            console.error('FormData upload failed, trying base64 fallback:', formDataError);
-            // Fallback: try base64 approach
-            try {
-              console.log('Trying base64 fallback...');
-              let base64Data = '';
-              
-              if (Platform.OS === 'ios') {
-                console.log('iOS - Reading file as base64...');
-                base64Data = await FileSystem.readAsStringAsync(image, {
-                  encoding: FileSystem.EncodingType.Base64,
-                });
-                console.log('iOS - File read successfully, base64 length:', base64Data.length);
-              } else {
-                // Android - read as base64
-                console.log('Android - Reading file as base64...');
-                base64Data = await FileSystem.readAsStringAsync(image, {
-                  encoding: FileSystem.EncodingType.Base64,
-                });
-                console.log('Android - File read successfully, base64 length:', base64Data.length);
-              }
+          let base64Data = imageBase64; // Android: from picker
 
-              // Upload image using base64
-              console.log('Uploading image as base64 to /community/upload-image');
+          if (Platform.OS === 'android' && base64Data) {
+            try {
+              console.log('Android - Using base64 from picker (avoids content:// URI issues)');
               const uploadResponse = await api.post('/community/upload-image', {
                 imageBase64: base64Data,
                 mimeType: mimeType,
                 fileName: `photo.${fileExtension}`,
               }, {
-                headers: {
-                  'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
               });
-              console.log('Image upload response:', uploadResponse.data);
-              
-              if (uploadResponse.data && uploadResponse.data.imageUrl) {
+              if (uploadResponse.data?.imageUrl) {
                 imageUrl = uploadResponse.data.imageUrl;
-                console.log('Image uploaded successfully via base64, URL:', imageUrl);
                 uploadSuccess = true;
-              } else {
-                throw new Error('No image URL returned from upload');
-              }
-            } catch (base64Error) {
-              console.error('Base64 upload also failed:', base64Error);
+              } else throw new Error('No image URL returned');
+            } catch (androidError) {
+              console.error('Android base64 upload failed:', androidError);
               Alert.alert(
                 'Image Upload Failed',
-                base64Error.response?.data?.error || formDataError.response?.data?.error || formDataError.message || 'Failed to upload image. Please try again.',
+                androidError.response?.data?.error || androidError.message || 'Failed to upload image. Please try again.',
                 [{ text: 'OK' }]
               );
               setLoading(false);
               return;
+            }
+          } else {
+            // iOS or Android without base64: try FormData first
+            try {
+              console.log('Using FormData to upload image');
+              const imageFormData = new FormData();
+              imageFormData.append('image', {
+                uri: image,
+                type: mimeType,
+                name: `photo.${fileExtension}`,
+              });
+              const uploadResponse = await api.post('/community/upload-image', imageFormData);
+              if (uploadResponse.data?.imageUrl) {
+                imageUrl = uploadResponse.data.imageUrl;
+                uploadSuccess = true;
+              } else throw new Error('No image URL returned');
+            } catch (formDataError) {
+              console.error('FormData failed, trying base64 fallback:', formDataError);
+              try {
+                base64Data = await FileSystem.readAsStringAsync(image, {
+                  encoding: FileSystem.EncodingType.Base64,
+                });
+                const uploadResponse = await api.post('/community/upload-image', {
+                  imageBase64: base64Data,
+                  mimeType: mimeType,
+                  fileName: `photo.${fileExtension}`,
+                }, { headers: { 'Content-Type': 'application/json' } });
+                if (uploadResponse.data?.imageUrl) {
+                  imageUrl = uploadResponse.data.imageUrl;
+                  uploadSuccess = true;
+                } else throw new Error('No image URL returned');
+              } catch (base64Error) {
+                console.error('Base64 fallback failed:', base64Error);
+                Alert.alert(
+                  'Image Upload Failed',
+                  base64Error.response?.data?.error || formDataError.response?.data?.error || 'Failed to upload image. Please try again.',
+                  [{ text: 'OK' }]
+                );
+                setLoading(false);
+                return;
+              }
             }
           }
           
@@ -233,6 +232,7 @@ export default function CreatePostScreen({ navigation }) {
         <TextInput
           style={styles.input}
           placeholder="What's on your mind?"
+          placeholderTextColor="#666"
           value={content}
           onChangeText={setContent}
           multiline

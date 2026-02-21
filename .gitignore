@@ -14,6 +14,8 @@ logs
 *.log
 npm-debug.log*
 
+mobile/android/
+
 # OS
 .DS_Store
 Thumbs.db

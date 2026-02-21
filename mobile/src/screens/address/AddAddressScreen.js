@@ -104,6 +104,7 @@ export default function AddAddressScreen({ route, navigation }) {
         <TextInput
           style={styles.input}
           placeholder="Full Name *"
+          placeholderTextColor="#666"
           value={name}
           onChangeText={setName}
         />
@@ -111,6 +112,7 @@ export default function AddAddressScreen({ route, navigation }) {
         <TextInput
           style={styles.input}
           placeholder="Phone Number *"
+          placeholderTextColor="#666"
           value={phone}
           onChangeText={setPhone}
           keyboardType="phone-pad"
@@ -119,6 +121,7 @@ export default function AddAddressScreen({ route, navigation }) {
         <TextInput
           style={styles.input}
           placeholder="Address Line 1 *"
+          placeholderTextColor="#666"
           value={addressLine1}
           onChangeText={setAddressLine1}
         />
@@ -126,6 +129,7 @@ export default function AddAddressScreen({ route, navigation }) {
         <TextInput
           style={styles.input}
           placeholder="Address Line 2 (Optional)"
+          placeholderTextColor="#666"
           value={addressLine2}
           onChangeText={setAddressLine2}
         />
@@ -134,6 +138,7 @@ export default function AddAddressScreen({ route, navigation }) {
           <TextInput
             style={[styles.input, styles.halfInput]}
             placeholder="City *"
+            placeholderTextColor="#666"
             value={city}
             onChangeText={setCity}
           />
@@ -141,6 +146,7 @@ export default function AddAddressScreen({ route, navigation }) {
           <TextInput
             style={[styles.input, styles.halfInput]}
             placeholder="State *"
+            placeholderTextColor="#666"
             value={state}
             onChangeText={setState}
           />
@@ -149,6 +155,7 @@ export default function AddAddressScreen({ route, navigation }) {
         <TextInput
           style={styles.input}
           placeholder="Pincode *"
+          placeholderTextColor="#666"
           value={pincode}
           onChangeText={setPincode}
           keyboardType="number-pad"

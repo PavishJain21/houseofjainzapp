@@ -103,6 +103,7 @@ export default function AdminPostsScreen({ navigation }) {
         <TextInput
           style={styles.searchInput}
           placeholder="Search posts..."
+          placeholderTextColor="#666"
           value={search}
           onChangeText={setSearch}
         />

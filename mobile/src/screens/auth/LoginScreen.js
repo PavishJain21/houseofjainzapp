@@ -15,23 +15,60 @@ import { AuthContext } from '../../context/AuthContext';
 import api from '../../config/api';
 import Logo from '../../components/Logo';
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MIN_PASSWORD_LENGTH = 6;
+
 export default function LoginScreen({ navigation }) {
   const { t } = useContext(LanguageContext);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [errors, setErrors] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
   const { signIn } = useContext(AuthContext);
 
-  const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
-      return;
+  const validateForm = () => {
+    const newErrors = { email: '', password: '' };
+    let isValid = true;
+
+    const trimmedEmail = email.trim();
+
+    if (!trimmedEmail) {
+      newErrors.email = t('auth.emailRequired');
+      isValid = false;
+    } else if (!EMAIL_REGEX.test(trimmedEmail)) {
+      newErrors.email = t('auth.emailInvalid');
+      isValid = false;
     }
+
+    if (!password) {
+      newErrors.password = t('auth.passwordRequired');
+      isValid = false;
+    } else if (password.length < MIN_PASSWORD_LENGTH) {
+      newErrors.password = t('auth.passwordMinLength');
+      isValid = false;
+    }
+
+    setErrors(newErrors);
+    return isValid;
+  };
+
+  const handleEmailChange = (text) => {
+    setEmail(text);
+    if (errors.email) setErrors((prev) => ({ ...prev, email: '' }));
+  };
+
+  const handlePasswordChange = (text) => {
+    setPassword(text);
+    if (errors.password) setErrors((prev) => ({ ...prev, password: '' }));
+  };
+
+  const handleLogin = async () => {
+    if (!validateForm()) return;
 
     setLoading(true);
     try {
       const response = await api.post('/auth/login', {
-        email,
+        email: email.trim(),
         password,
       });
 
@@ -72,23 +109,31 @@ export default function LoginScreen({ navigation }) {
 
         <View style={styles.form}>
           <TextInput
-            style={styles.input}
+            style={[styles.input, errors.email && styles.inputError]}
             placeholder={t('auth.email')}
+            placeholderTextColor="#666"
             value={email}
-            onChangeText={setEmail}
+            onChangeText={handleEmailChange}
             keyboardType="email-address"
             autoCapitalize="none"
             autoComplete="email"
           />
+          {errors.email ? (
+            <Text style={styles.errorText}>{errors.email}</Text>
+          ) : null}
 
           <TextInput
-            style={styles.input}
+            style={[styles.input, errors.password && styles.inputError]}
             placeholder={t('auth.password')}
+            placeholderTextColor="#666"
             value={password}
-            onChangeText={setPassword}
+            onChangeText={handlePasswordChange}
             secureTextEntry
             autoCapitalize="none"
           />
+          {errors.password ? (
+            <Text style={styles.errorText}>{errors.password}</Text>
+          ) : null}
 
           <TouchableOpacity
             style={[styles.button, loading && styles.buttonDisabled]}
@@ -152,8 +197,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
     borderRadius: 10,
     padding: 15,
-    marginBottom: 15,
+    marginBottom: 4,
     fontSize: 16,
+  },
+  inputError: {
+    borderWidth: 1,
+    borderColor: '#e53935',
+  },
+  errorText: {
+    color: '#e53935',
+    fontSize: 12,
+    marginBottom: 12,
+    marginTop: 2,
   },
   button: {
     backgroundColor: '#4CAF50',

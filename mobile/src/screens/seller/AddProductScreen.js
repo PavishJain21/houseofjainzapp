@@ -25,6 +25,7 @@ export default function AddProductScreen({ route, navigation }) {
   const [category, setCategory] = useState(product?.category || '');
   const [stock, setStock] = useState(product?.stock?.toString() || '');
   const [image, setImage] = useState(product?.image_url || null);
+  const [imageBase64, setImageBase64] = useState(null); // Android: base64 from picker (content:// URIs can't be read)
   const [loading, setLoading] = useState(false);
   const [pickingImage, setPickingImage] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -51,18 +52,19 @@ export default function AddProductScreen({ route, navigation }) {
       // Small delay to ensure UI is responsive
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      // Launch image picker with minimal options
+      // On Android, get base64 from picker - content:// URIs fail with FormData & FileSystem
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: false,
         quality: 1,
+        base64: Platform.OS === 'android',
       });
 
-      // Handle result
       if (result && !result.canceled && result.assets && result.assets.length > 0) {
         const selectedImage = result.assets[0];
         if (selectedImage.uri) {
           setImage(selectedImage.uri);
+          setImageBase64(Platform.OS === 'android' && selectedImage.base64 ? selectedImage.base64 : null);
         }
       }
     } catch (error) {
@@ -87,12 +89,15 @@ export default function AddProductScreen({ route, navigation }) {
 
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: false, // Disable editing to prevent hangs
+        allowsEditing: false,
         quality: 0.8,
+        base64: Platform.OS === 'android',
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        setImage(result.assets[0].uri);
+        const asset = result.assets[0];
+        setImage(asset.uri);
+        setImageBase64(Platform.OS === 'android' && asset.base64 ? asset.base64 : null);
       }
     } catch (error) {
       console.error('Camera error:', error);
@@ -127,14 +132,14 @@ export default function AddProductScreen({ route, navigation }) {
       'Remove Image',
       'Are you sure you want to remove this image?',
       [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Remove',
           style: 'destructive',
-          onPress: () => setImage(null),
+          onPress: () => {
+            setImage(null);
+            setImageBase64(null);
+          },
         },
       ]
     );
@@ -165,8 +170,11 @@ export default function AddProductScreen({ route, navigation }) {
     try {
       let imageUrl = null;
 
-      // Step 1: Upload image to Supabase Storage first (if image exists and is valid)
+      // Step 1: Upload image (or use existing URL when editing)
       if (image && image.trim() !== '') {
+        if (image.startsWith('http://') || image.startsWith('https://')) {
+          imageUrl = image; // Edit mode: existing image URL
+        } else {
         try {
           console.log('Starting image upload, image URI:', image);
           
@@ -191,85 +199,72 @@ export default function AddProductScreen({ route, navigation }) {
           if (fileExtension === 'png') mimeType = 'image/png';
           if (fileExtension === 'gif') mimeType = 'image/gif';
 
-          // Use FormData as primary method, base64 as fallback
+          // Android: content:// URIs fail with FormData & FileSystem - use base64 from picker
+          // iOS: try FormData first, fallback to FileSystem base64
           let uploadSuccess = false;
-          
-          // Try FormData first
-          try {
-            console.log('Using FormData to upload image');
-            console.log('Platform:', Platform.OS);
-            console.log('Image URI:', image);
-            console.log('MIME type:', mimeType);
-            console.log('File extension:', fileExtension);
-            
-            const imageFormData = new FormData();
-            imageFormData.append('image', {
-              uri: image,
-              type: mimeType,
-              name: `product.${fileExtension}`,
-            });
-            
-            const uploadResponse = await api.post('/seller/upload-image', imageFormData);
-            console.log('Image upload response:', uploadResponse.data);
-            
-            if (uploadResponse.data && uploadResponse.data.imageUrl) {
-              imageUrl = uploadResponse.data.imageUrl;
-              console.log('Image uploaded successfully via FormData, URL:', imageUrl);
-              uploadSuccess = true;
-            } else {
-              throw new Error('No image URL returned from upload');
-            }
-          } catch (formDataError) {
-            console.error('FormData upload failed, trying base64 fallback:', formDataError);
-            // Fallback: try base64 approach
-            try {
-              console.log('Trying base64 fallback...');
-              let base64Data = '';
-              
-              if (Platform.OS === 'ios') {
-                console.log('iOS - Reading file as base64...');
-                base64Data = await FileSystem.readAsStringAsync(image, {
-                  encoding: FileSystem.EncodingType.Base64,
-                });
-                console.log('iOS - File read successfully, base64 length:', base64Data.length);
-              } else {
-                // Android - read as base64
-                console.log('Android - Reading file as base64...');
-                base64Data = await FileSystem.readAsStringAsync(image, {
-                  encoding: FileSystem.EncodingType.Base64,
-                });
-                console.log('Android - File read successfully, base64 length:', base64Data.length);
-              }
+          let base64Data = imageBase64;
 
-              // Upload image using base64
-              console.log('Uploading image as base64 to /seller/upload-image');
+          if (Platform.OS === 'android' && base64Data) {
+            try {
+              console.log('Android - Using base64 from picker (avoids content:// URI issues)');
               const uploadResponse = await api.post('/seller/upload-image', {
                 imageBase64: base64Data,
                 mimeType: mimeType,
                 fileName: `product.${fileExtension}`,
-              }, {
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-              });
-              console.log('Image upload response:', uploadResponse.data);
-              
-              if (uploadResponse.data && uploadResponse.data.imageUrl) {
+              }, { headers: { 'Content-Type': 'application/json' } });
+              if (uploadResponse.data?.imageUrl) {
                 imageUrl = uploadResponse.data.imageUrl;
-                console.log('Image uploaded successfully via base64, URL:', imageUrl);
                 uploadSuccess = true;
-              } else {
-                throw new Error('No image URL returned from upload');
-              }
-            } catch (base64Error) {
-              console.error('Base64 upload also failed:', base64Error);
+              } else throw new Error('No image URL returned');
+            } catch (androidError) {
+              console.error('Android base64 upload failed:', androidError);
               Alert.alert(
                 'Image Upload Failed',
-                base64Error.response?.data?.error || formDataError.response?.data?.error || formDataError.message || 'Failed to upload image. Please try again.',
+                androidError.response?.data?.error || androidError.message || 'Failed to upload image. Please try again.',
                 [{ text: 'OK' }]
               );
               setLoading(false);
               return;
+            }
+          } else {
+            try {
+              console.log('Using FormData to upload image');
+              const imageFormData = new FormData();
+              imageFormData.append('image', {
+                uri: image,
+                type: mimeType,
+                name: `product.${fileExtension}`,
+              });
+              const uploadResponse = await api.post('/seller/upload-image', imageFormData);
+              if (uploadResponse.data?.imageUrl) {
+                imageUrl = uploadResponse.data.imageUrl;
+                uploadSuccess = true;
+              } else throw new Error('No image URL returned');
+            } catch (formDataError) {
+              console.error('FormData failed, trying base64 fallback:', formDataError);
+              try {
+                base64Data = await FileSystem.readAsStringAsync(image, {
+                  encoding: FileSystem.EncodingType.Base64,
+                });
+                const uploadResponse = await api.post('/seller/upload-image', {
+                  imageBase64: base64Data,
+                  mimeType: mimeType,
+                  fileName: `product.${fileExtension}`,
+                }, { headers: { 'Content-Type': 'application/json' } });
+                if (uploadResponse.data?.imageUrl) {
+                  imageUrl = uploadResponse.data.imageUrl;
+                  uploadSuccess = true;
+                } else throw new Error('No image URL returned');
+              } catch (base64Error) {
+                console.error('Base64 fallback failed:', base64Error);
+                Alert.alert(
+                  'Image Upload Failed',
+                  base64Error.response?.data?.error || formDataError.response?.data?.error || 'Failed to upload image. Please try again.',
+                  [{ text: 'OK' }]
+                );
+                setLoading(false);
+                return;
+              }
             }
           }
           
@@ -292,6 +287,7 @@ export default function AddProductScreen({ route, navigation }) {
           );
           setLoading(false);
           return;
+        }
         }
       }
 
@@ -481,6 +477,7 @@ export default function AddProductScreen({ route, navigation }) {
         <TextInput
           style={styles.input}
           placeholder="Product Name *"
+          placeholderTextColor="#666"
           value={name}
           onChangeText={setName}
         />
@@ -488,6 +485,7 @@ export default function AddProductScreen({ route, navigation }) {
         <TextInput
           style={[styles.input, styles.textArea]}
           placeholder="Description"
+          placeholderTextColor="#666"
           value={description}
           onChangeText={setDescription}
           multiline
@@ -499,6 +497,7 @@ export default function AddProductScreen({ route, navigation }) {
           <TextInput
             style={[styles.input, styles.halfInput]}
             placeholder="Price (₹) *"
+            placeholderTextColor="#666"
             value={price}
             onChangeText={setPrice}
             keyboardType="decimal-pad"
@@ -507,6 +506,7 @@ export default function AddProductScreen({ route, navigation }) {
           <TextInput
             style={[styles.input, styles.halfInput]}
             placeholder="Stock *"
+            placeholderTextColor="#666"
             value={stock}
             onChangeText={setStock}
             keyboardType="number-pad"
@@ -516,6 +516,7 @@ export default function AddProductScreen({ route, navigation }) {
         <TextInput
           style={styles.input}
           placeholder="Category (Optional)"
+          placeholderTextColor="#666"
           value={category}
           onChangeText={setCategory}
         />

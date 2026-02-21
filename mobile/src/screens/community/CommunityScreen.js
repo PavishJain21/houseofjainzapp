@@ -19,6 +19,7 @@ import {
   TouchableWithoutFeedback,
 } from 'react-native';
 import * as Location from 'expo-location';
+import { getLocationWithFallback } from '../../utils/location';
 import { Ionicons } from '@expo/vector-icons';
 import api, { API_BASE_URL } from '../../config/api';
 import { AuthContext } from '../../context/AuthContext';
@@ -57,7 +58,7 @@ export default function CommunityScreen({ navigation }) {
         return;
       }
 
-      const locationData = await Location.getCurrentPositionAsync({});
+      const locationData = await getLocationWithFallback({});
       const { latitude, longitude } = locationData.coords;
       
       // Reverse geocode to get city name
@@ -548,6 +549,7 @@ export default function CommunityScreen({ navigation }) {
                       <TextInput
                         style={styles.commentInput}
                         placeholder={t('community.writeComment')}
+                        placeholderTextColor="#666"
                         value={commentText}
                         onChangeText={setCommentText}
                         multiline

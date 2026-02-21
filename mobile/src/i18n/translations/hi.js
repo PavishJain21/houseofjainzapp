@@ -42,6 +42,10 @@ export default {
     loginSuccess: 'लॉगिन सफल',
     registerSuccess: 'रजिस्ट्रेशन सफल',
     logoutConfirm: 'क्या आप वाकई लॉगआउट करना चाहते हैं?',
+    emailRequired: 'ईमेल आवश्यक है',
+    emailInvalid: 'कृपया एक मान्य ईमेल पता दर्ज करें',
+    passwordRequired: 'पासवर्ड आवश्यक है',
+    passwordMinLength: 'पासवर्ड कम से कम 6 अक्षर का होना चाहिए',
   },
 
   // Community
