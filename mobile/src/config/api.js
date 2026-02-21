@@ -1,12 +1,10 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Backend API URL (Netlify deployment)
+// Backend API URL (Netlify - CORS allows localhost)
 const API_URL = 'https://devserver-main--unique-crostata-cb0a3f.netlify.app/api';
 
-const getApiUrl = () => {
-  return API_URL;
-};
+const getApiUrl = () => API_URL;
 
 export const API_BASE_URL = getApiUrl();
 

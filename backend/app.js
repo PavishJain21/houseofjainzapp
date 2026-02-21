@@ -22,9 +22,13 @@ const adminPayoutsRoutes = require('./routes/admin-payouts');
 
 const app = express();
 
-// Middleware - CORS: allow mobile app, Expo web, localhost, and Netlify
+// Middleware - CORS: allow localhost (Expo web), mobile, Netlify
 const corsOptions = {
-  origin: true, // Allow any origin
+  origin: [
+    /^http:\/\/localhost(:\d+)?$/,   // http://localhost:8081, :3000, etc.
+    /^http:\/\/127\.0\.0\.1(:\d+)?$/,
+    /^https:\/\/.*\.netlify\.app$/,   // Netlify preview/production
+  ],
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Cron-Secret'],
 };
