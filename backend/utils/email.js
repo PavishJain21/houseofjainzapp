@@ -32,7 +32,7 @@ async function sendPasswordResetEmail(to, resetLink, userName = 'User') {
     });
 
     const mailOptions = {
-      from: process.env.EMAIL_FROM || 'noreply@houseofjainz.com',
+      from: process.env.EMAIL_FROM || 'info@houseofjainz.com',
       to: to,
       subject: 'Reset Your Password - House of Jainz',
       html: `
