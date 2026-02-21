@@ -6,7 +6,13 @@
   to = "/.netlify/functions/api"
   status = 200
 
-# CORS headers at edge - ensures preflight OPTIONS gets headers even before function runs
+# SPA - must come after /api/* so API routes are not caught
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# CORS headers at edge
 [[headers]]
   for = "/api/*"
   [headers.values]
@@ -14,3 +20,8 @@
     Access-Control-Allow-Methods = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
     Access-Control-Allow-Headers = "Content-Type, Authorization, X-Cron-Secret"
     Access-Control-Max-Age = "86400"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
