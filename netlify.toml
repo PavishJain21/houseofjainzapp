@@ -1,0 +1,24 @@
+[build]
+  functions = "netlify/functions"
+  publish = "."
+  command = "echo 'No build required for backend-only'"
+
+# Proxy /api and /api/* to the serverless function (preserves path for Express)
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api"
+  to = "/.netlify/functions/api"
+  status = 200
+  force = true
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+  # Increase timeout for payment/upload operations (max 26s on Pro, 10s on Free)
+  [functions.api]
+    timeout = 26
