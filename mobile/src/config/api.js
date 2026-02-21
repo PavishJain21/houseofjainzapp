@@ -2,7 +2,7 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Backend API URL (Netlify - CORS allows localhost)
-const API_URL = 'https://devserver-main--unique-crostata-cb0a3f.netlify.app/api';
+const API_URL = 'https://houseofjainz-o8g2v.ondigitalocean.app/api';
 
 const getApiUrl = () => API_URL;
 
