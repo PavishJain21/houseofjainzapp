@@ -1,37 +1,7 @@
 [build]
   functions = "netlify/functions"
-  publish = "."
-  command = "echo 'No build required for backend-only'"
-  [build.environment]
-    # NODE_ENV in code is a false positive - it's not a secret, just an env var reference
-    SECRETS_SCAN_OMIT_KEYS = "NODE_ENV"
 
-# Global CORS headers for all responses
-[[headers]]
-  for = "/*"
-  [headers.values]
-    Access-Control-Allow-Origin = "*"
-    Access-Control-Allow-Methods = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
-    Access-Control-Allow-Headers = "Content-Type, Authorization, X-Cron-Secret"
-
-# Proxy /api and /api/* to the serverless function (preserves path for Express)
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/api"
   status = 200
-  force = true
-  headers = {"X-From" = "Netlify"}
-
-[[redirects]]
-  from = "/api"
-  to = "/.netlify/functions/api"
-  status = 200
-  force = true
-  headers = {"X-From" = "Netlify"}
-
-[functions]
-  directory = "netlify/functions"
-  node_bundler = "none"
-  # Increase timeout for payment/upload operations (max 26s on Pro, 10s on Free)
-  [functions.api]
-    timeout = 26
