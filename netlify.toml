@@ -2,6 +2,9 @@
   functions = "netlify/functions"
   publish = "."
   command = "echo 'No build required for backend-only'"
+  [build.environment]
+    # NODE_ENV in code is a false positive - it's not a secret, just an env var reference
+    SECRETS_SCAN_OMIT_KEYS = "NODE_ENV"
 
 # Proxy /api and /api/* to the serverless function (preserves path for Express)
 [[redirects]]
@@ -18,7 +21,7 @@
 
 [functions]
   directory = "netlify/functions"
-  node_bundler = "esbuild"
+  node_bundler = "none"
   # Increase timeout for payment/upload operations (max 26s on Pro, 10s on Free)
   [functions.api]
     timeout = 26
