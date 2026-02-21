@@ -22,12 +22,22 @@ const adminPayoutsRoutes = require('./routes/admin-payouts');
 
 const app = express();
 
-// Middleware - CORS: allow all origins (fixes preflight for Cloudflare Tunnel, localhost, etc.)
-app.use(cors({
-  origin: '*',
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Cron-Secret'],
-}));
+// Handle CORS preflight OPTIONS immediately (before any other middleware)
+app.options('*', (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Cron-Secret');
+  res.header('Access-Control-Max-Age', '86400');
+  res.sendStatus(204);
+});
+
+// CORS for actual requests
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Cron-Secret');
+  next();
+});
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
