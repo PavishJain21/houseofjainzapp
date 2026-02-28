@@ -6,6 +6,7 @@
 export const FEATURE_TREE = {
   auth: { parent: null, label: 'Auth', description: 'Login, register, forgot/reset password, Google login' },
   community: { parent: null, label: 'Community', description: 'Feed, create post, my posts, like, comment' },
+  forum: { parent: null, label: 'Forum', description: 'Categories, text posts, like, comment, delete by owner, share' },
   marketplace: { parent: null, label: 'Marketplace', description: 'Browse shops and products' },
   cart: { parent: 'marketplace', label: 'Cart', description: 'Shopping cart, add/update/remove items' },
   orders: { parent: 'marketplace', label: 'Orders', description: 'Checkout, place order, my orders' },
@@ -20,6 +21,7 @@ export const FEATURE_TREE = {
 export const ALL_FEATURE_IDS = [
   'auth',
   'community',
+  'forum',
   'marketplace',
   'cart',
   'orders',

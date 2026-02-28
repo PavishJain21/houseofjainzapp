@@ -12,6 +12,9 @@ import RegisterScreen from './src/screens/auth/RegisterScreen';
 import ForgotPasswordScreen from './src/screens/auth/ForgotPasswordScreen';
 import ResetPasswordScreen from './src/screens/auth/ResetPasswordScreen';
 import CommunityScreen from './src/screens/community/CommunityScreen';
+import ForumLandingScreen from './src/screens/forum/ForumLandingScreen';
+import CategoryFeedScreen from './src/screens/forum/CategoryFeedScreen';
+import CreateForumPostScreen from './src/screens/forum/CreateForumPostScreen';
 import MarketplaceScreen from './src/screens/marketplace/MarketplaceScreen';
 import CartScreen from './src/screens/cart/CartScreen';
 import ProfileScreen from './src/screens/profile/ProfileScreen';
@@ -67,6 +70,28 @@ function CommunityStack() {
         name="CreatePost" 
         component={CreatePostScreen}
         options={{ title: 'Create Post' }}
+      />
+    </Stack.Navigator>
+  );
+}
+
+function ForumStack() {
+  return (
+    <Stack.Navigator>
+      <Stack.Screen 
+        name="ForumLanding" 
+        component={ForumLandingScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen 
+        name="ForumCategoryFeed" 
+        component={CategoryFeedScreen}
+        options={({ route }) => ({ title: route.params?.categoryLabel || 'Forum' })}
+      />
+      <Stack.Screen 
+        name="CreateForumPost" 
+        component={CreateForumPostScreen}
+        options={({ route }) => ({ title: route.params?.categoryLabel ? `Post in ${route.params.categoryLabel}` : 'Create Post' })}
       />
     </Stack.Navigator>
   );
@@ -245,6 +270,7 @@ function AdminStack() {
 function MainTabs() {
   const { isEnabled } = useFeatures();
   const showCommunity = isEnabled('community');
+  const showForum = isEnabled('forum');
   const showMarketplace = isEnabled('marketplace');
   const showCart = isEnabled('cart');
   return (
@@ -255,6 +281,8 @@ function MainTabs() {
 
           if (route.name === 'CommunityTab') {
             iconName = focused ? 'people' : 'people-outline';
+          } else if (route.name === 'ForumTab') {
+            iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
           } else if (route.name === 'MarketplaceTab') {
             iconName = focused ? 'storefront' : 'storefront-outline';
           } else if (route.name === 'CartTab') {
@@ -271,6 +299,7 @@ function MainTabs() {
       })}
     >
       {showCommunity && <Tab.Screen name="CommunityTab" component={CommunityStack} options={{ title: 'Community' }} />}
+      {showForum && <Tab.Screen name="ForumTab" component={ForumStack} options={{ title: 'Forum' }} />}
       {showMarketplace && <Tab.Screen name="MarketplaceTab" component={MarketplaceStack} options={{ title: 'Marketplace' }} />}
       {showCart && (
         <Tab.Screen 

@@ -12,6 +12,7 @@ Features can be **enabled or disabled** via environment variables. Disabling a *
 |-------------|-------------|----------------------------------------------------------|--------------------|------------------------------|
 | **auth**    | Auth        | Login, register, forgot/reset password, Google login     | `ENABLE_AUTH`      | —                            |
 | **community** | Community | Feed, create post, my posts, like, comment               | `ENABLE_COMMUNITY` | —                            |
+| **forum**     | Forum     | Categories, text posts, like, comment, delete by owner, share | `ENABLE_FORUM`   | —                            |
 | **marketplace** | Marketplace | Browse shops and products                          | `ENABLE_MARKETPLACE` | **cart**, **orders**, **addresses**, **payments**, **seller** |
 | **notifications** | Notifications | In-app notifications list, mark read            | `ENABLE_NOTIFICATIONS` | —                         |
 | **consent** | Consent      | Terms, privacy, cookie policy (onboarding + profile)     | `ENABLE_CONSENT`   | —                            |
@@ -37,6 +38,7 @@ All children of **marketplace** are disabled when **marketplace** is disabled:
 
 - **Disable `marketplace`** → Removes: Marketplace tab, Cart tab, My Orders, Addresses, Seller dashboard, Order Received, Checkout, Payments (Razorpay), Payouts. Backend routes under `/api/marketplace`, `/api/cart`, `/api/orders`, `/api/addresses`, `/api/payments`, `/api/seller`, `/api/payouts` return 403.
 - **Disable `community`** → Removes: Community tab, Create Post, My Posts. Backend `/api/community` returns 403.
+- **Disable `forum`** → Removes: Forum tab, forum categories and posts. Backend `/api/forum` returns 403.
 - **Disable `cart`** → Removes: Cart tab only (marketplace and shop/product still work).
 - **Disable `orders`** → Removes: Checkout, My Orders (cart and marketplace still work).
 - **Disable `seller`** → Removes: Seller dashboard, Order Received, Create Shop, Add/Edit Product, Seller orders, Earnings, Payout history. Backend `/api/seller`, `/api/payouts` return 403.
@@ -70,7 +72,7 @@ Defaults: all features are **enabled** (`1`) if not set.
 
 The app loads feature flags from **GET /api/features**. It uses them to:
 
-- Show/hide bottom tabs (Community, Marketplace, Cart)
+- Show/hide bottom tabs (Community, Forum, Marketplace, Cart)
 - Show/hide profile menu items (My Orders, Order Received, My Posts, Notifications, My Addresses, Seller Dashboard, Terms/Privacy/Cookie)
 - Show Admin stack only when user is admin **and** `admin` feature is enabled
 
@@ -88,6 +90,7 @@ No env vars are needed on the mobile side; it follows the backend.
     "features": {
       "auth": true,
       "community": true,
+      "forum": true,
       "marketplace": true,
       "cart": true,
       "orders": true,
@@ -118,6 +121,8 @@ No env vars are needed on the mobile side; it follows the backend.
 | Mobile tree + resolve | `mobile/src/config/features.js` |
 | Fetch + cache     | `mobile/src/services/featureService.js` |
 | React context     | `mobile/src/context/FeatureContext.js` |
-| Tabs (Community, Marketplace, Cart) | `mobile/App.js` (MainTabs) |
+| Tabs (Community, Forum, Marketplace, Cart) | `mobile/App.js` (MainTabs) |
+| Forum schema      | `supabase/forum_schema.sql` |
+| Forum API         | `backend/routes/forum.js` |
 | Profile menu      | `mobile/src/screens/profile/ProfileScreen.js` |
 | Admin stack       | `mobile/App.js` (ConsentNavigator) |
