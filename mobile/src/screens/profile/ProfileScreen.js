@@ -11,14 +11,18 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '../../context/AuthContext';
 import LanguageContext from '../../context/LanguageContext';
+import { useTheme } from '../../context/ThemeContext';
 import useFeatures from '../../context/FeatureContext';
 import api from '../../config/api';
+import AppBanner from '../../components/AppBanner';
 
 export default function ProfileScreen({ navigation }) {
   const { user, signOut } = useContext(AuthContext);
   const { t, language, changeLanguage } = useContext(LanguageContext);
+  const { theme, themePreference, setThemeMode } = useTheme();
   const { isEnabled } = useFeatures();
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
+  const [themeModalVisible, setThemeModalVisible] = useState(false);
   const [hasShops, setHasShops] = useState(false);
   const [checkingShops, setCheckingShops] = useState(true);
 
@@ -82,6 +86,11 @@ export default function ProfileScreen({ navigation }) {
       onPress: () => navigation.navigate('SellerDashboard'),
     }] : []),
     {
+      title: t('profile.appearance'),
+      icon: 'moon-outline',
+      onPress: () => setThemeModalVisible(true),
+    },
+    {
       title: t('profile.language'),
       icon: 'language-outline',
       onPress: () => setLanguageModalVisible(true),
@@ -100,41 +109,88 @@ export default function ProfileScreen({ navigation }) {
   ];
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.avatar}>
+    <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <AppBanner
+        title="House of Jainz"
+        subtitle="Your profile, orders, and preferences in one place."
+        icon="person-circle"
+        variant="primary"
+      />
+      <View style={[styles.header, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.border }]}>
+        <View style={[styles.avatar, { backgroundColor: theme.colors.primary }]}>
           <Text style={styles.avatarText}>
             {user?.name?.charAt(0).toUpperCase() || 'U'}
           </Text>
         </View>
-        <Text style={styles.userName}>{user?.name || t('common.user')}</Text>
-        <Text style={styles.userEmail}>{user?.email}</Text>
+        <Text style={[styles.userName, { color: theme.colors.text }]}>{user?.name || t('common.user')}</Text>
+        <Text style={[styles.userEmail, { color: theme.colors.textSecondary }]}>{user?.email}</Text>
         {user?.religion && (
-          <Text style={styles.userReligion}>{user.religion}</Text>
+          <Text style={[styles.userReligion, { color: theme.colors.primary }]}>{user.religion}</Text>
         )}
       </View>
 
-      <View style={styles.menu}>
+      <View style={[styles.menu, { backgroundColor: theme.colors.surface }]}>
         {menuItems.map((item, index) => (
           <TouchableOpacity
             key={index}
-            style={styles.menuItem}
+            style={[styles.menuItem, { borderBottomColor: theme.colors.borderLight }]}
             onPress={item.onPress}
           >
             <Ionicons
               name={item.icon}
               size={24}
-              color={item.color || '#4CAF50'}
+              color={item.color || theme.colors.primary}
             />
             <Text
-              style={[styles.menuText, item.color && { color: item.color }]}
+              style={[styles.menuText, { color: theme.colors.text }, item.color && { color: item.color }]}
             >
               {item.title}
             </Text>
-            <Ionicons name="chevron-forward" size={20} color="#ccc" />
+            <Ionicons name="chevron-forward" size={20} color={theme.colors.textMuted} />
           </TouchableOpacity>
         ))}
       </View>
+
+      {/* Theme / Appearance Modal */}
+      <Modal
+        visible={themeModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setThemeModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
+            <Text style={[styles.modalTitle, { color: theme.colors.text }]}>{t('profile.appearance')}</Text>
+            <TouchableOpacity
+              style={[styles.languageOption, themePreference === 'light' && styles.languageOptionSelected, { borderColor: theme.colors.border }]}
+              onPress={() => { setThemeMode('light'); setThemeModalVisible(false); }}
+            >
+              <Text style={[styles.languageText, { color: theme.colors.text }]}>{t('profile.themeLight')}</Text>
+              {themePreference === 'light' && <Ionicons name="checkmark" size={20} color={theme.colors.primary} />}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.languageOption, themePreference === 'dark' && styles.languageOptionSelected, { borderColor: theme.colors.border }]}
+              onPress={() => { setThemeMode('dark'); setThemeModalVisible(false); }}
+            >
+              <Text style={[styles.languageText, { color: theme.colors.text }]}>{t('profile.themeDark')}</Text>
+              {themePreference === 'dark' && <Ionicons name="checkmark" size={20} color={theme.colors.primary} />}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.languageOption, themePreference === null && styles.languageOptionSelected, { borderColor: theme.colors.border }]}
+              onPress={() => { setThemeMode(null); setThemeModalVisible(false); }}
+            >
+              <Text style={[styles.languageText, { color: theme.colors.text }]}>{t('profile.themeSystem')}</Text>
+              {themePreference === null && <Ionicons name="checkmark" size={20} color={theme.colors.primary} />}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modalCloseButton, { backgroundColor: theme.colors.borderLight }]}
+              onPress={() => setThemeModalVisible(false)}
+            >
+              <Text style={[styles.modalCloseText, { color: theme.colors.text }]}>{t('common.close')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* Language Selection Modal */}
       <Modal
@@ -144,33 +200,33 @@ export default function ProfileScreen({ navigation }) {
         onRequestClose={() => setLanguageModalVisible(false)}
       >
         <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>{t('profile.selectLanguage')}</Text>
+          <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
+            <Text style={[styles.modalTitle, { color: theme.colors.text }]}>{t('profile.selectLanguage')}</Text>
             <TouchableOpacity
-              style={[styles.languageOption, language === 'en' && styles.languageOptionSelected]}
+              style={[styles.languageOption, language === 'en' && styles.languageOptionSelected, { borderColor: language === 'en' ? theme.colors.primary : theme.colors.border }]}
               onPress={() => {
                 changeLanguage('en');
                 setLanguageModalVisible(false);
               }}
             >
-              <Text style={styles.languageText}>{t('profile.english')}</Text>
-              {language === 'en' && <Ionicons name="checkmark" size={20} color="#4CAF50" />}
+              <Text style={[styles.languageText, { color: theme.colors.text }]}>{t('profile.english')}</Text>
+              {language === 'en' && <Ionicons name="checkmark" size={20} color={theme.colors.primary} />}
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.languageOption, language === 'hi' && styles.languageOptionSelected]}
+              style={[styles.languageOption, language === 'hi' && styles.languageOptionSelected, { borderColor: language === 'hi' ? theme.colors.primary : theme.colors.border }]}
               onPress={() => {
                 changeLanguage('hi');
                 setLanguageModalVisible(false);
               }}
             >
-              <Text style={styles.languageText}>{t('profile.hindi')}</Text>
-              {language === 'hi' && <Ionicons name="checkmark" size={20} color="#4CAF50" />}
+              <Text style={[styles.languageText, { color: theme.colors.text }]}>{t('profile.hindi')}</Text>
+              {language === 'hi' && <Ionicons name="checkmark" size={20} color={theme.colors.primary} />}
             </TouchableOpacity>
             <TouchableOpacity
-              style={styles.modalCloseButton}
+              style={[styles.modalCloseButton, { backgroundColor: theme.colors.borderLight }]}
               onPress={() => setLanguageModalVisible(false)}
             >
-              <Text style={styles.modalCloseText}>{t('common.close')}</Text>
+              <Text style={[styles.modalCloseText, { color: theme.colors.text }]}>{t('common.close')}</Text>
             </TouchableOpacity>
           </View>
         </View>

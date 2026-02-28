@@ -174,6 +174,10 @@ export default {
     hindi: 'Hindi',
     noPosts: 'No posts yet',
     postsWillAppear: 'Your posts will appear here',
+    appearance: 'Appearance',
+    themeLight: 'Light',
+    themeDark: 'Dark',
+    themeSystem: 'System',
   },
 
   // Seller

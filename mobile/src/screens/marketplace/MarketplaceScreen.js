@@ -15,10 +15,13 @@ import * as Location from 'expo-location';
 import { getLocationWithFallback } from '../../utils/location';
 import { Ionicons } from '@expo/vector-icons';
 import LanguageContext from '../../context/LanguageContext';
+import { useTheme } from '../../context/ThemeContext';
 import api from '../../config/api';
+import AppBanner from '../../components/AppBanner';
 
 export default function MarketplaceScreen({ navigation }) {
   const { t } = useContext(LanguageContext);
+  const { theme } = useTheme();
   const [shops, setShops] = useState([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -263,8 +266,8 @@ export default function MarketplaceScreen({ navigation }) {
   );
 
   return (
-    <View style={styles.container}>
-      <View style={styles.searchContainer}>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <View style={[styles.searchContainer, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
         <Ionicons name="search" size={20} color="#666" style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
@@ -307,9 +310,17 @@ export default function MarketplaceScreen({ navigation }) {
         onEndReachedThreshold={0.5}
         scrollEventThrottle={400}
         contentContainerStyle={styles.list}
+        ListHeaderComponent={
+          <AppBanner
+            title="Discover local shops"
+            subtitle="Find Jain-friendly stores and products near you."
+            icon="storefront"
+            variant="secondary"
+          />
+        }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>{t('marketplace.noShops')}</Text>
+            <Text style={[styles.emptyText, { color: theme.colors.textMuted }]}>{t('marketplace.noShops')}</Text>
           </View>
         }
         ListFooterComponent={

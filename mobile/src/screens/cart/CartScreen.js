@@ -12,10 +12,13 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import LanguageContext from '../../context/LanguageContext';
+import { useTheme } from '../../context/ThemeContext';
 import api from '../../config/api';
+import AppBanner from '../../components/AppBanner';
 
 export default function CartScreen({ navigation }) {
   const { t } = useContext(LanguageContext);
+  const { theme } = useTheme();
   const [cartItems, setCartItems] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -136,7 +139,7 @@ export default function CartScreen({ navigation }) {
   );
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <FlatList
         data={cartItems}
         renderItem={renderItem}
@@ -148,22 +151,30 @@ export default function CartScreen({ navigation }) {
           styles.list,
           cartItems.length > 0 && { paddingBottom: 20 }
         ]}
+        ListHeaderComponent={
+          <AppBanner
+            title="Secure checkout"
+            subtitle="Your cart is safe. Add more from Marketplace or proceed to checkout."
+            icon="shield-checkmark"
+            variant="secondary"
+          />
+        }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Ionicons name="cart-outline" size={60} color="#ccc" />
-            <Text style={styles.emptyText}>{t('cart.empty')}</Text>
+            <Ionicons name="cart-outline" size={60} color={theme.colors.emptyIcon} />
+            <Text style={[styles.emptyText, { color: theme.colors.textMuted }]}>{t('cart.empty')}</Text>
           </View>
         }
       />
 
       {cartItems.length > 0 && (
-        <View style={styles.footer}>
+        <View style={[styles.footer, { backgroundColor: theme.colors.surface, borderTopColor: theme.colors.border }]}>
           <View style={styles.totalContainer}>
-            <Text style={styles.totalLabel}>{t('cart.total')}:</Text>
-            <Text style={styles.totalAmount}>₹{total.toFixed(2)}</Text>
+            <Text style={[styles.totalLabel, { color: theme.colors.text }]}>{t('cart.total')}:</Text>
+            <Text style={[styles.totalAmount, { color: theme.colors.primary }]}>₹{total.toFixed(2)}</Text>
           </View>
           <TouchableOpacity
-            style={styles.checkoutButton}
+            style={[styles.checkoutButton, { backgroundColor: theme.colors.primary }]}
             onPress={() => navigation.navigate('Checkout')}
           >
             <Text style={styles.checkoutText}>{t('cart.proceedToCheckout')}</Text>

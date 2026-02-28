@@ -74,7 +74,7 @@ export default function ForgotPasswordScreen({ navigation }) {
           >
             <Ionicons name="arrow-back" size={24} color="#333" />
           </TouchableOpacity>
-          <Logo size="large" showText={true} />
+          <Logo size="large" showText={false} />
           <Text style={styles.subtitle}>Reset your password</Text>
         </View>
 

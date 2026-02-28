@@ -43,6 +43,7 @@ import AdminOrdersScreen from './src/screens/admin/AdminOrdersScreen';
 
 import { AuthContext } from './src/context/AuthContext';
 import { LanguageProvider } from './src/context/LanguageContext';
+import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { ConsentProvider, ConsentContext } from './src/context/ConsentContext';
 import { FeatureProvider, useFeatures } from './src/context/FeatureContext';
 import { API_BASE_URL } from './src/config/api';
@@ -269,6 +270,7 @@ function AdminStack() {
 
 function MainTabs() {
   const { isEnabled } = useFeatures();
+  const { theme } = useTheme();
   const showCommunity = isEnabled('community');
   const showForum = isEnabled('forum');
   const showMarketplace = isEnabled('marketplace');
@@ -293,8 +295,9 @@ function MainTabs() {
 
           return <Ionicons name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: '#4CAF50',
-        tabBarInactiveTintColor: 'gray',
+        tabBarActiveTintColor: theme.colors.tabActive,
+        tabBarInactiveTintColor: theme.colors.tabInactive,
+        tabBarStyle: { backgroundColor: theme.colors.surface },
         headerShown: false,
       })}
     >
@@ -401,16 +404,18 @@ export default function App() {
 
   return (
     <LanguageProvider>
-      <AuthContext.Provider value={authContext}>
-        <FeatureProvider>
-          <ConsentProvider>
-            <ConsentNavigator 
-              userToken={userToken} 
-              isSuperAdmin={isSuperAdmin}
-            />
-          </ConsentProvider>
-        </FeatureProvider>
-      </AuthContext.Provider>
+      <ThemeProvider>
+        <AuthContext.Provider value={authContext}>
+          <FeatureProvider>
+            <ConsentProvider>
+              <ConsentNavigator 
+                userToken={userToken} 
+                isSuperAdmin={isSuperAdmin}
+              />
+            </ConsentProvider>
+          </FeatureProvider>
+        </AuthContext.Provider>
+      </ThemeProvider>
     </LanguageProvider>
   );
 }
@@ -419,8 +424,20 @@ export default function App() {
 function ConsentNavigator({ userToken, isSuperAdmin }) {
   const consentContext = useContext(ConsentContext);
   const { isEnabled } = useFeatures();
+  const { theme } = useTheme();
   const [showCookieConsent, setShowCookieConsent] = useState(false);
   const adminEnabled = isEnabled('admin');
+  const navTheme = {
+    dark: theme.mode === 'dark',
+    colors: {
+      primary: theme.colors.primary,
+      background: theme.colors.background,
+      card: theme.colors.surface,
+      text: theme.colors.text,
+      border: theme.colors.border,
+      notification: theme.colors.primary,
+    },
+  };
 
   // Safely extract values with defaults - ensure context exists
   if (!consentContext) {
@@ -476,7 +493,10 @@ function ConsentNavigator({ userToken, isSuperAdmin }) {
 
   return (
     <>
-      <NavigationContainer key={`nav-${contextNeedsConsent}-${userToken ? 'auth' : 'unauth'}`}>
+      <NavigationContainer
+        key={`nav-${contextNeedsConsent}-${userToken ? 'auth' : 'unauth'}-${theme.mode}`}
+        theme={navTheme}
+      >
         {userToken ? (
           contextNeedsConsent ? (
             <Stack.Navigator screenOptions={{ headerShown: false }}>

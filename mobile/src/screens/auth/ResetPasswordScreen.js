@@ -105,7 +105,7 @@ export default function ResetPasswordScreen({ navigation, route }) {
   if (verifying) {
     return (
       <View style={styles.loadingContainer}>
-        <Logo size="large" showText={true} />
+        <Logo size="large" showText={false} />
         <Text style={styles.loadingText}>Verifying reset link...</Text>
       </View>
     );
@@ -144,7 +144,7 @@ export default function ResetPasswordScreen({ navigation, route }) {
           >
             <Ionicons name="arrow-back" size={24} color="#333" />
           </TouchableOpacity>
-          <Logo size="large" showText={true} />
+          <Logo size="large" showText={false} />
           <Text style={styles.subtitle}>Create new password</Text>
         </View>
 

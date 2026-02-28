@@ -60,7 +60,7 @@ export default function RegisterScreen({ navigation }) {
     >
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.header}>
-          <Logo size="large" showText={true} />
+          <Logo size="large" showText={false} />
           <Text style={styles.subtitle}>Create your account</Text>
         </View>
 

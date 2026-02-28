@@ -175,7 +175,7 @@ export default function LoginScreen({ navigation }) {
     >
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.header}>
-          <Logo size="large" showText={true} />
+          <Logo size="large" showText={false} />
           <Text style={styles.subtitle}>Welcome back!</Text>
         </View>
 

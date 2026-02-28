@@ -24,11 +24,14 @@ import { Ionicons } from '@expo/vector-icons';
 import api, { API_BASE_URL } from '../../config/api';
 import { AuthContext } from '../../context/AuthContext';
 import LanguageContext from '../../context/LanguageContext';
+import { useTheme } from '../../context/ThemeContext';
 import AudioPlayer from '../../components/AudioPlayer';
+import AppBanner from '../../components/AppBanner';
 
 export default function CommunityScreen({ navigation }) {
   const { user } = useContext(AuthContext);
   const { t } = useContext(LanguageContext);
+  const { theme } = useTheme();
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -427,9 +430,9 @@ export default function CommunityScreen({ navigation }) {
   );
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>{t('community.title')}</Text>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <View style={[styles.header, { backgroundColor: theme.colors.surface, shadowColor: theme.colors.shadow }]}>
+        <Text style={[styles.headerTitle, { color: theme.colors.text }]}>{t('community.title')}</Text>
       </View>
 
       <FlatList
@@ -444,18 +447,25 @@ export default function CommunityScreen({ navigation }) {
         scrollEventThrottle={400}
         contentContainerStyle={styles.list}
         ListHeaderComponent={
-          <View style={styles.audioPlayerContainer}>
-            <AudioPlayer
-              audioUrl="https://sqfhtmxufevsidyoofla.supabase.co/storage/v1/object/public/uploads/audio/navkar-mantra-by-lata-mangeshkar.mp3"
-              title="Navkar Mantra"
+          <>
+            <AppBanner
+              title="Welcome to House of Jainz"
+              subtitle="Connect with the community, share moments, and discover local shops."
+              icon="heart"
             />
-          </View>
+            <View style={styles.audioPlayerContainer}>
+              <AudioPlayer
+                audioUrl="https://sqfhtmxufevsidyoofla.supabase.co/storage/v1/object/public/uploads/audio/navkar-mantra-by-lata-mangeshkar.mp3"
+                title="Navkar Mantra"
+              />
+            </View>
+          </>
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Ionicons name="people-outline" size={60} color="#ccc" />
-            <Text style={styles.emptyText}>{t('community.noPosts')}</Text>
-            <Text style={styles.emptySubtext}>{t('community.beFirst')}</Text>
+            <Ionicons name="people-outline" size={60} color={theme.colors.emptyIcon} />
+            <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>{t('community.noPosts')}</Text>
+            <Text style={[styles.emptySubtext, { color: theme.colors.textMuted }]}>{t('community.beFirst')}</Text>
           </View>
         }
         ListFooterComponent={
@@ -469,7 +479,7 @@ export default function CommunityScreen({ navigation }) {
 
       {/* Floating Post Button */}
       <TouchableOpacity
-        style={styles.floatingPostButton}
+        style={[styles.floatingPostButton, { backgroundColor: theme.colors.primary }]}
         onPress={() => navigation.navigate('CreatePost')}
         activeOpacity={0.8}
       >
