@@ -2,12 +2,16 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const { OAuth2Client } = require('google-auth-library');
 const supabase = require('../config/supabase');
 const { authenticateToken } = require('../middleware/auth');
 const { body, validationResult } = require('express-validator');
 const { sendPasswordResetEmail } = require('../utils/email');
 
 const router = express.Router();
+
+const googleClientId = process.env.GOOGLE_CLIENT_ID || '206763068103-2btqifg7h8o6thme3ijqf91rl8f9jfl8.apps.googleusercontent.com';
+const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET || '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';
 
 // Register
 router.post('/register', [
@@ -149,27 +153,48 @@ router.post('/login', [
   }
 });
 
-// Google login (Supabase OAuth)
-router.post('/google', [
-  body('access_token').notEmpty(),
-], async (req, res) => {
+// Google login (own implementation: idToken or authorization code)
+// Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env (from Google Cloud Console)
+router.post('/google', async (req, res) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+    if (!googleClientId) {
+      return res.status(503).json({
+        error: 'Google sign-in is not configured. Set GOOGLE_CLIENT_ID in backend .env.',
+      });
     }
 
-    const { access_token } = req.body;
+    const { id_token, code, redirect_uri } = req.body;
+    let payload;
 
-    // Verify the Supabase access token and get user from Supabase Auth
-    const { data: { user: supabaseUser }, error: authError } = await supabase.auth.getUser(access_token);
-
-    if (authError || !supabaseUser) {
-      return res.status(401).json({ error: 'Invalid or expired Google sign-in' });
+    if (id_token) {
+      // Verify Google ID token (e.g. from a native Google Sign-In SDK)
+      const client = new OAuth2Client(googleClientId);
+      const ticket = await client.verifyIdToken({
+        idToken: id_token,
+        audience: googleClientId,
+      });
+      payload = ticket.getPayload();
+    } else if (code && redirect_uri && googleClientSecret) {
+      // Exchange authorization code for tokens (e.g. from OAuth redirect in app)
+      const client = new OAuth2Client(googleClientId, googleClientSecret, redirect_uri);
+      const { tokens } = await client.getToken(code);
+      const idToken = tokens.id_token;
+      if (!idToken) {
+        return res.status(401).json({ error: 'Google did not return an ID token' });
+      }
+      const ticket = await client.verifyIdToken({
+        idToken,
+        audience: googleClientId,
+      });
+      payload = ticket.getPayload();
+    } else {
+      return res.status(400).json({
+        error: 'Provide either id_token or code + redirect_uri. For code flow, GOOGLE_CLIENT_SECRET must be set.',
+      });
     }
 
-    const email = supabaseUser.email;
-    const name = supabaseUser.user_metadata?.full_name || supabaseUser.user_metadata?.name || email?.split('@')[0] || 'User';
+    const email = payload.email;
+    const name = payload.name || payload.given_name || email?.split('@')[0] || 'User';
 
     if (!email) {
       return res.status(400).json({ error: 'Google account must provide an email' });
@@ -183,7 +208,6 @@ router.post('/google', [
       .single();
 
     if (!user) {
-      // Create new user - OAuth users get a placeholder password (never used)
       const oauthPasswordPlaceholder = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10);
       const { data: newUser, error: insertError } = await supabase
         .from('users')
@@ -193,7 +217,7 @@ router.post('/google', [
             password: oauthPasswordPlaceholder,
             name,
             religion: 'Jain',
-            phone: supabaseUser.phone || null,
+            phone: null,
             created_at: new Date().toISOString(),
           }
         ])
@@ -206,14 +230,12 @@ router.post('/google', [
       user = newUser;
     }
 
-    // Generate our JWT token
     const token = jwt.sign(
       { userId: user.id, email: user.email },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
 
-    // Get user role
     const { data: userWithRole } = await supabase
       .from('users')
       .select('role')
@@ -234,13 +256,10 @@ router.post('/google', [
     });
   } catch (error) {
     console.error('Google login error:', error);
-    if (error.message && error.message.includes('Invalid API key')) {
-      return res.status(503).json({
-        error: 'Backend Supabase key is invalid. Set SUPABASE_ANON_KEY in your backend .env to the Supabase anon key (Dashboard → Settings → API), not the Google Client ID.',
-        hint: 'See GOOGLE_LOGIN_SETUP.md',
-      });
+    if (error.message && error.message.includes('redirect_uri')) {
+      return res.status(400).json({ error: 'Invalid or mismatched redirect_uri. Use the same redirect_uri as in the OAuth request.' });
     }
-    res.status(500).json({ error: error.message });
+    res.status(401).json({ error: 'Invalid or expired Google sign-in' });
   }
 });
 
@@ -259,12 +278,6 @@ router.get('/me', authenticateToken, async (req, res) => {
 
     res.json({ user });
   } catch (error) {
-    if (error.message && error.message.includes('Invalid API key')) {
-      return res.status(503).json({
-        error: 'Backend Supabase key is invalid. Set SUPABASE_ANON_KEY in your backend .env to the Supabase anon key (Dashboard → Settings → API), not the Google Client ID.',
-        hint: 'See GOOGLE_LOGIN_SETUP.md',
-      });
-    }
     res.status(500).json({ error: error.message });
   }
 });

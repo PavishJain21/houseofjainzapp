@@ -1,4 +1,4 @@
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useContext, useEffect, useRef } from 'react';
 import LanguageContext from '../../context/LanguageContext';
 import {
   View,
@@ -15,12 +15,19 @@ import {
 import * as WebBrowser from 'expo-web-browser';
 import * as QueryParams from 'expo-auth-session/build/QueryParams';
 import { makeRedirectUri } from 'expo-auth-session';
+import Constants from 'expo-constants';
 import { AuthContext } from '../../context/AuthContext';
 import api from '../../config/api';
 import Logo from '../../components/Logo';
-import { supabase } from '../../config/supabase';
 
 WebBrowser.maybeCompleteAuthSession();
+
+const GOOGLE_OAUTH_SCOPE = 'openid email profile';
+
+// Google client ID: from app.config.js extra (mobile/.env EXPO_PUBLIC_GOOGLE_CLIENT_ID) or env
+function getGoogleClientId() {
+  return Constants.expoConfig?.extra?.googleClientId || process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || '206763068103-2btqifg7h8o6thme3ijqf91rl8f9jfl8.apps.googleusercontent.com';
+}
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LENGTH = 6;
@@ -31,6 +38,7 @@ export default function LoginScreen({ navigation }) {
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
+  const googleCodeHandled = useRef(false);
   const { signIn } = useContext(AuthContext);
 
   const validateForm = () => {
@@ -69,69 +77,103 @@ export default function LoginScreen({ navigation }) {
     if (errors.password) setErrors((prev) => ({ ...prev, password: '' }));
   };
 
-  const createSessionFromUrl = async (url) => {
-    if (!supabase) return null;
-    const { params, errorCode } = QueryParams.getQueryParams(url);
-    if (errorCode) throw new Error(errorCode);
-    const { access_token, refresh_token } = params;
-    if (!access_token) return null;
-    const { data, error } = await supabase.auth.setSession({ access_token, refresh_token });
-    if (error) throw error;
-    return data.session;
+  const getGoogleRedirectUri = () => {
+    if (Platform.OS === 'web') {
+      return makeRedirectUri({ scheme: 'houseofjainz', path: 'auth/callback' });
+    }
+    if (Platform.OS === 'ios' || Platform.OS === 'android') {
+      const isExpoGo = Constants.appOwnership === 'expo';
+      if (isExpoGo) {
+        const uri = makeRedirectUri({ path: 'auth/callback' });
+        if (uri && uri.includes('localhost')) return 'houseofjainz://auth/callback';
+        return uri;
+      }
+      return 'houseofjainz://auth/callback';
+    }
+    return makeRedirectUri({ scheme: 'houseofjainz', path: 'auth/callback' });
   };
 
   const handleGoogleLogin = async () => {
-    if (!supabase) {
-      Alert.alert(t('common.error'), 'Google login is not configured. Add EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY to your .env or app.config.js.');
+    const clientId = getGoogleClientId();
+    if (!clientId) {
+      Alert.alert(t('common.error'), 'Google sign-in is not configured. Set EXPO_PUBLIC_GOOGLE_CLIENT_ID in mobile/.env and restart the app.');
       return;
     }
     setLoading(true);
     try {
-      const redirectTo = makeRedirectUri({ scheme: 'houseofjainz', path: 'auth/callback' });
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: { redirectTo, skipBrowserRedirect: true },
-      });
-      if (error) throw error;
-      const res = await WebBrowser.openAuthSessionAsync(data?.url ?? '', redirectTo);
-      if (res.type === 'success' && res.url) {
-        const session = await createSessionFromUrl(res.url);
-        if (session?.access_token) {
-          const response = await api.post('/auth/google', { access_token: session.access_token });
-          if (response.data.token) {
-            const userData = { ...response.data.user, role: response.data.user?.role || 'user' };
-            signIn(response.data.token, userData);
-          }
-        }
+      const redirectUri = getGoogleRedirectUri();
+      const authUrl = [
+        'https://accounts.google.com/o/oauth2/v2/auth',
+        `?client_id=${encodeURIComponent(clientId)}`,
+        `&redirect_uri=${encodeURIComponent(redirectUri)}`,
+        '&response_type=code',
+        `&scope=${encodeURIComponent(GOOGLE_OAUTH_SCOPE)}`,
+      ].join('');
+      if (__DEV__) {
+        console.log('[Google Login] Redirect URI (add in Google Cloud Console → Credentials → Authorized redirect URIs):', redirectUri);
       }
-    } catch (err) {
-      Alert.alert(t('common.error'), err.message || t('auth.invalidCredentials'));
-    } finally {
+      // Use Linking so the browser actually opens (openAuthSessionAsync can fail on some iOS/Android)
+      if (Platform.OS === 'web') {
+        window.location.href = authUrl;
+        setLoading(false);
+        return;
+      }
+      await Linking.openURL(authUrl);
       setLoading(false);
+      // User returns via deep link (houseofjainz://auth/callback?code=...); deep link handler exchanges code and signs in
+    } catch (err) {
+      setLoading(false);
+      Alert.alert(t('common.error'), err.message || t('auth.invalidCredentials'));
     }
   };
 
+  // Deep link (native): app opened via houseofjainz://auth/callback?code=...
   useEffect(() => {
     const handleDeepLink = (event) => {
       const url = event?.url;
-      if (url && (url.includes('access_token') || url.includes('#'))) {
-        createSessionFromUrl(url).then(async (session) => {
-          if (session?.access_token) {
-            try {
-              const response = await api.post('/auth/google', { access_token: session.access_token });
-              if (response.data.token) {
-                const userData = { ...response.data.user, role: response.data.user?.role || 'user' };
-                signIn(response.data.token, userData);
-              }
-            } catch (e) {
-              Alert.alert(t('common.error'), e.message || t('auth.invalidCredentials'));
+      if (!url || !getGoogleClientId()) return;
+      if (url.includes('auth/callback') && url.includes('code=')) {
+        const { params, errorCode } = QueryParams.getQueryParams(url);
+        if (errorCode) return;
+        const code = params?.code;
+        if (!code) return;
+        const redirectUri = getGoogleRedirectUri();
+        api.post('/auth/google', { code, redirect_uri: redirectUri })
+          .then((response) => {
+            if (response.data.token) {
+              const userData = { ...response.data.user, role: response.data.user?.role || 'user' };
+              signIn(response.data.token, userData);
             }
-          }
-        }).catch(console.error);
+          })
+          .catch((e) => Alert.alert(t('common.error'), e.message || t('auth.invalidCredentials')));
       }
     };
     const sub = Linking.addEventListener('url', handleDeepLink);
     return () => sub?.remove?.();
+  }, [signIn, t]);
+
+  // Web: page loaded with ?code= after redirect from Google
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    if (googleCodeHandled.current) return;
+    const search = window.location.search || '';
+    const match = search.match(/[?&]code=([^&]+)/);
+    const code = match && match[1];
+    if (!code || !getGoogleClientId()) return;
+    googleCodeHandled.current = true;
+    const redirectUri = getGoogleRedirectUri();
+    api.post('/auth/google', { code, redirect_uri: redirectUri })
+      .then((response) => {
+        if (response.data.token) {
+          const userData = { ...response.data.user, role: response.data.user?.role || 'user' };
+          signIn(response.data.token, userData);
+          window.history.replaceState({}, '', window.location.pathname || '/');
+        }
+      })
+      .catch((e) => {
+        Alert.alert(t('common.error'), e.message || t('auth.invalidCredentials'));
+        window.history.replaceState({}, '', window.location.pathname || '/');
+      });
   }, [signIn, t]);
 
   const handleLogin = async () => {
@@ -217,8 +259,7 @@ export default function LoginScreen({ navigation }) {
             </Text>
           </TouchableOpacity>
 
-          {supabase ? (
-            <>
+          <>
               <View style={styles.divider}>
                 <View style={styles.dividerLine} />
                 <Text style={styles.dividerText}>or</Text>
@@ -232,7 +273,6 @@ export default function LoginScreen({ navigation }) {
                 <Text style={styles.googleButtonText}>{t('auth.loginWithGoogle')}</Text>
               </TouchableOpacity>
             </>
-          ) : null}
 
           <TouchableOpacity
             style={styles.linkButton}
