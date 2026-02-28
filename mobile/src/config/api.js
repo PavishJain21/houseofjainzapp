@@ -5,7 +5,7 @@ import { Platform } from 'react-native';
 // In development, use local backend so feature flags and data come from your .env
 // Android emulator: use 10.0.2.2 instead of localhost; physical device: use your machine's IP
 const LOCAL_API =
-  Platform.OS === 'android' ? 'http://10.0.2.2:5000/api' : 'http://localhost:5000/api';
+  Platform.OS === 'android' ? 'https://houseofjainz-o8g2v.ondigitalocean.app/api/' : 'https://houseofjainz-o8g2v.ondigitalocean.app/api/';
 const PRODUCTION_API = 'https://houseofjainz-o8g2v.ondigitalocean.app/api';
 
 const API_URL = __DEV__ ? LOCAL_API : PRODUCTION_API;
