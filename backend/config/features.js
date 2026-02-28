@@ -11,6 +11,7 @@ require('dotenv').config({ path: path.join(__dirname, '../../.env') });
 const FEATURE_TREE = {
   auth: { parent: null, label: 'Auth', description: 'Login, register, forgot/reset password, Google login' },
   community: { parent: null, label: 'Community', description: 'Feed, create post, my posts, like, comment' },
+  forum: { parent: null, label: 'Forum', description: 'Categories, text posts, like, comment, delete by owner, share' },
   marketplace: { parent: null, label: 'Marketplace', description: 'Browse shops and products' },
   cart: { parent: 'marketplace', label: 'Cart', description: 'Shopping cart, add/update/remove items' },
   orders: { parent: 'marketplace', label: 'Orders', description: 'Checkout, place order, my orders' },
@@ -26,6 +27,7 @@ const FEATURE_TREE = {
 const ALL_FEATURE_IDS = [
   'auth',
   'community',
+  'forum',
   'marketplace',
   'cart',
   'orders',
@@ -41,6 +43,7 @@ const ALL_FEATURE_IDS = [
 const ROUTE_TO_FEATURE = {
   '/api/auth': 'auth',
   '/api/community': 'community',
+  '/api/forum': 'forum',
   '/api/marketplace': 'marketplace',
   '/api/cart': 'cart',
   '/api/orders': 'orders',
@@ -64,6 +67,7 @@ function getRawEnabledFromEnv() {
   return {
     auth: readEnvFlag('ENABLE_AUTH', true),
     community: readEnvFlag('ENABLE_COMMUNITY', true),
+    forum: readEnvFlag('ENABLE_FORUM', true),
     marketplace: readEnvFlag('ENABLE_MARKETPLACE', true),
     cart: readEnvFlag('ENABLE_CART', true),
     orders: readEnvFlag('ENABLE_ORDERS', true),

@@ -82,8 +82,12 @@ export default function CreatePostScreen({ navigation }) {
   };
 
   const handlePost = async () => {
+    if (!image) {
+      Alert.alert('Photo required', 'Please add a photo to your post.');
+      return;
+    }
     if (!content.trim()) {
-      Alert.alert('Error', 'Please enter some content');
+      Alert.alert('Caption required', 'Please add a caption for your post.');
       return;
     }
 
@@ -91,8 +95,8 @@ export default function CreatePostScreen({ navigation }) {
     try {
       let imageUrl = null;
 
-      // Step 1: Upload image to Supabase Storage first (if image exists)
-      if (image) {
+      // Step 1: Upload image to Supabase Storage (required)
+      {
         try {
           console.log('Starting image upload, image URI:', image);
           
@@ -206,11 +210,11 @@ export default function CreatePostScreen({ navigation }) {
         }
       }
 
-      // Step 2: Create post with image URL reference
+      // Step 2: Create post with image URL and caption
       const postData = {
-        content,
+        content: content.trim(),
         location: location || null,
-        imageUrl: imageUrl,
+        imageUrl,
       };
 
       console.log('Creating post with data:', { ...postData, imageUrl: imageUrl ? 'URL set' : 'No image' });
@@ -229,25 +233,34 @@ export default function CreatePostScreen({ navigation }) {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.form}>
+        {/* Photo (required) - show first */}
+        <TouchableOpacity style={styles.imageBox} onPress={pickImage} disabled={loading}>
+          {image ? (
+            <Image source={{ uri: image }} style={styles.imagePreview} resizeMode="cover" />
+          ) : (
+            <View style={styles.imagePlaceholder}>
+              <Ionicons name="image-outline" size={48} color="#4CAF50" />
+              <Text style={styles.imagePlaceholderText}>Add photo (required)</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+
         <TextInput
           style={styles.input}
-          placeholder="What's on your mind?"
+          placeholder="Write a caption..."
           placeholderTextColor="#666"
           value={content}
           onChangeText={setContent}
           multiline
-          numberOfLines={6}
+          numberOfLines={3}
           textAlignVertical="top"
+          editable={!loading}
         />
-
-        {image && (
-          <Image source={{ uri: image }} style={styles.imagePreview} />
-        )}
 
         <View style={styles.actions}>
           <TouchableOpacity style={styles.actionButton} onPress={pickImage}>
             <Ionicons name="image" size={24} color="#4CAF50" />
-            <Text style={styles.actionText}>Add Image</Text>
+            <Text style={styles.actionText}>{image ? 'Change Photo' : 'Add Photo'}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.actionButton} onPress={getLocation}>
@@ -281,13 +294,37 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingTop: 60,
   },
+  imageBox: {
+    width: '100%',
+    aspectRatio: 4 / 3,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: '#e8e8e8',
+    marginBottom: 16,
+  },
+  imagePreview: {
+    width: '100%',
+    height: '100%',
+  },
+  imagePlaceholder: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: 180,
+  },
+  imagePlaceholderText: {
+    marginTop: 8,
+    fontSize: 15,
+    color: '#4CAF50',
+    fontWeight: '600',
+  },
   input: {
     borderWidth: 1,
     borderColor: '#e0e0e0',
     borderRadius: 16,
     padding: 18,
     fontSize: 16,
-    minHeight: 180,
+    minHeight: 100,
     marginBottom: 20,
     backgroundColor: '#fff',
     shadowColor: '#000',
@@ -295,14 +332,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 3,
     elevation: 2,
-  },
-  imagePreview: {
-    width: '100%',
-    height: 250,
-    borderRadius: 16,
-    marginBottom: 20,
-    resizeMode: 'cover',
-    backgroundColor: '#f0f0f0',
   },
   actions: {
     flexDirection: 'row',

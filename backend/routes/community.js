@@ -9,7 +9,7 @@ const router = express.Router();
 // Configure multer for image uploads - use memory storage for React Native compatibility
 const storage = multer.memoryStorage();
 
-const upload = multer({ 
+const upload = multer({
   storage: storage,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
   fileFilter: (req, file, cb) => {
@@ -20,8 +20,15 @@ const upload = multer({
       return cb(null, true);
     }
     cb(new Error('Only image files are allowed'));
-  }
+  },
 });
+
+// Accept 'image', 'file', or 'photo' so web browser and mobile both work
+const uploadAnyImage = upload.fields([
+  { name: 'image', maxCount: 1 },
+  { name: 'file', maxCount: 1 },
+  { name: 'photo', maxCount: 1 },
+]);
 
 // Upload image to Supabase Storage (separate endpoint)
 // Supports both FormData (multer) and base64 JSON
@@ -39,8 +46,7 @@ router.post('/upload-image', authenticateToken, (req, res, next) => {
     return handleBase64Upload(req, res);
   } else {
     console.log('Detected FormData upload, using multer');
-    // Handle FormData upload with multer
-    return upload.single('image')(req, res, (err) => {
+    return uploadAnyImage(req, res, (err) => {
       if (err) {
         console.error('Multer error:', err);
         return res.status(400).json({ error: err.message || 'File upload error' });
@@ -130,20 +136,27 @@ async function handleBase64Upload(req, res) {
 
 async function handleFormDataUpload(req, res) {
   try {
+    // Support field names: image, file, photo (web often uses 'file')
+    const file =
+      (req.files && (req.files['image']?.[0] || req.files['file']?.[0] || req.files['photo']?.[0])) ||
+      req.file;
+
     console.log('Processing FormData image upload');
-    console.log('Request file:', req.file ? `File received: ${req.file.originalname}, size: ${req.file.size}` : 'No file');
-    
-    if (!req.file) {
-      console.error('No file in request');
-      return res.status(400).json({ error: 'No image file provided. Please ensure the image is selected and try again.' });
+    console.log('Request file:', file ? `File received: ${file.originalname}, size: ${file.size}` : 'No file');
+
+    if (!file) {
+      console.error('No file in request. Use FormData with field name: image, file, or photo');
+      return res.status(400).json({
+        error: 'No image file provided. Use FormData and append the image under the field name "image", "file", or "photo".',
+      });
     }
 
     const userId = req.user.userId;
     console.log('User ID:', userId);
-    
-    const fileBuffer = req.file.buffer;
-    const mimeType = req.file.mimetype;
-    const fileExtension = path.extname(req.file.originalname) || '.jpg';
+
+    const fileBuffer = file.buffer;
+    const mimeType = file.mimetype;
+    const fileExtension = path.extname(file.originalname) || '.jpg';
     
     console.log('File buffer size:', fileBuffer.length);
     console.log('File mimetype:', mimeType);

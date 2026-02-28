@@ -8,6 +8,7 @@ require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
 const authRoutes = require('./routes/auth');
 const communityRoutes = require('./routes/community');
+const forumRoutes = require('./routes/forum');
 const marketplaceRoutes = require('./routes/marketplace');
 const cartRoutes = require('./routes/cart');
 const orderRoutes = require('./routes/orders');
@@ -60,6 +61,7 @@ app.use(requireFeatureByRoute);
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/community', communityRoutes);
+app.use('/api/forum', forumRoutes);
 app.use('/api/marketplace', marketplaceRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/orders', orderRoutes);
