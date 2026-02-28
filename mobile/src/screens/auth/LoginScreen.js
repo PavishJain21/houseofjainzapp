@@ -17,7 +17,7 @@ import * as QueryParams from 'expo-auth-session/build/QueryParams';
 import { makeRedirectUri } from 'expo-auth-session';
 import Constants from 'expo-constants';
 import { AuthContext } from '../../context/AuthContext';
-import api from '../../config/api';
+import api, { API_BASE_URL } from '../../config/api';
 import Logo from '../../components/Logo';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -77,18 +77,15 @@ export default function LoginScreen({ navigation }) {
     if (errors.password) setErrors((prev) => ({ ...prev, password: '' }));
   };
 
+  // Web: redirect back to our app URL so we can read ?code= from the URL.
+  // Native: use backend callback URL so Google accepts it (Web client type does not allow custom scheme redirect_uri).
   const getGoogleRedirectUri = () => {
     if (Platform.OS === 'web') {
       return makeRedirectUri({ scheme: 'houseofjainz', path: 'auth/callback' });
     }
     if (Platform.OS === 'ios' || Platform.OS === 'android') {
-      const isExpoGo = Constants.appOwnership === 'expo';
-      if (isExpoGo) {
-        const uri = makeRedirectUri({ path: 'auth/callback' });
-        if (uri && uri.includes('localhost')) return 'houseofjainz://auth/callback';
-        return uri;
-      }
-      return 'houseofjainz://auth/callback';
+      const base = (API_BASE_URL || '').replace(/\/$/, '');
+      return base ? `${base}/auth/google/callback` : makeRedirectUri({ path: 'auth/callback' });
     }
     return makeRedirectUri({ scheme: 'houseofjainz', path: 'auth/callback' });
   };
@@ -127,25 +124,26 @@ export default function LoginScreen({ navigation }) {
     }
   };
 
-  // Deep link (native): app opened via houseofjainz://auth/callback?code=...
+  // Deep link (native): app opened via houseofjainz://auth/callback?token=...&user=... (from backend) or ?error=...
   useEffect(() => {
     const handleDeepLink = (event) => {
       const url = event?.url;
-      if (!url || !getGoogleClientId()) return;
-      if (url.includes('auth/callback') && url.includes('code=')) {
-        const { params, errorCode } = QueryParams.getQueryParams(url);
-        if (errorCode) return;
-        const code = params?.code;
-        if (!code) return;
-        const redirectUri = getGoogleRedirectUri();
-        api.post('/auth/google', { code, redirect_uri: redirectUri })
-          .then((response) => {
-            if (response.data.token) {
-              const userData = { ...response.data.user, role: response.data.user?.role || 'user' };
-              signIn(response.data.token, userData);
-            }
-          })
-          .catch((e) => Alert.alert(t('common.error'), e.message || t('auth.invalidCredentials')));
+      if (!url || !url.includes('auth/callback')) return;
+      const { params } = QueryParams.getQueryParams(url);
+      const errorMsg = params?.error;
+      if (errorMsg) {
+        Alert.alert(t('common.error'), decodeURIComponent(errorMsg));
+        return;
+      }
+      const token = params?.token;
+      const userParam = params?.user;
+      if (token && userParam) {
+        try {
+          const userData = JSON.parse(decodeURIComponent(userParam));
+          signIn(token, { ...userData, role: userData.role || 'user' });
+        } catch (e) {
+          signIn(token, { role: 'user' });
+        }
       }
     };
     const sub = Linking.addEventListener('url', handleDeepLink);

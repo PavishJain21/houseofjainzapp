@@ -153,6 +153,65 @@ router.post('/login', [
   }
 });
 
+// Build backend callback URL for Google (must match Authorized redirect URI in Google Console)
+function getGoogleCallbackRedirectUri(req) {
+  const base = process.env.BACKEND_PUBLIC_URL || `${req.protocol}://${req.get('host')}`;
+  return base.replace(/\/$/, '') + '/api/auth/google/callback';
+}
+
+// Google OAuth callback (GET): used by native app so redirect_uri is HTTPS (Web client allows this).
+// User signs in on Google → Google redirects here with ?code= → we exchange code, then redirect to app with token.
+router.get('/google/callback', async (req, res) => {
+  try {
+    const { code, error: googleError, error_description } = req.query;
+    if (googleError) {
+      const msg = error_description || googleError;
+      return res.redirect(`houseofjainz://auth/callback?error=${encodeURIComponent(msg)}`);
+    }
+    if (!googleClientId || !googleClientSecret) {
+      return res.redirect('houseofjainz://auth/callback?error=' + encodeURIComponent('Google sign-in not configured'));
+    }
+    if (!code) {
+      return res.redirect('houseofjainz://auth/callback?error=' + encodeURIComponent('No code from Google'));
+    }
+    const redirectUri = getGoogleCallbackRedirectUri(req);
+    const client = new OAuth2Client(googleClientId, googleClientSecret, redirectUri);
+    const { tokens } = await client.getToken(code);
+    const idToken = tokens.id_token;
+    if (!idToken) {
+      return res.redirect('houseofjainz://auth/callback?error=' + encodeURIComponent('No ID token'));
+    }
+    const ticket = await client.verifyIdToken({ idToken, audience: googleClientId });
+    const payload = ticket.getPayload();
+    const email = payload.email;
+    const name = payload.name || payload.given_name || email?.split('@')[0] || 'User';
+    if (!email) {
+      return res.redirect('houseofjainz://auth/callback?error=' + encodeURIComponent('No email from Google'));
+    }
+    let { data: user } = await supabase.from('users').select('*').eq('email', email).single();
+    if (!user) {
+      const oauthPasswordPlaceholder = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10);
+      const { data: newUser, error: insertError } = await supabase
+        .from('users')
+        .insert([{ email, password: oauthPasswordPlaceholder, name, religion: 'Jain', phone: null, created_at: new Date().toISOString() }])
+        .select()
+        .single();
+      if (insertError) return res.redirect('houseofjainz://auth/callback?error=' + encodeURIComponent(insertError.message));
+      user = newUser;
+    }
+    const token = jwt.sign({ userId: user.id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    const { data: userWithRole } = await supabase.from('users').select('role').eq('id', user.id).single();
+    const userJson = encodeURIComponent(JSON.stringify({
+      id: user.id, email: user.email, name: user.name, religion: user.religion, phone: user.phone,
+      role: userWithRole?.role || 'user'
+    }));
+    res.redirect(`houseofjainz://auth/callback?token=${encodeURIComponent(token)}&user=${userJson}`);
+  } catch (err) {
+    console.error('Google callback error:', err);
+    res.redirect('houseofjainz://auth/callback?error=' + encodeURIComponent(err.message || 'Google sign-in failed'));
+  }
+});
+
 // Google login (own implementation: idToken or authorization code)
 // Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env (from Google Cloud Console)
 router.post('/google', async (req, res) => {
