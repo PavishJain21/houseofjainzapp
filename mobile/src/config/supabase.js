@@ -1,11 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 
-// Supabase URL and Anon Key - add to .env or app.config.js:
-// EXPO_PUBLIC_SUPABASE_URL=your_supabase_url
-// EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? 'https://sqfhtmxufevsidyoofla.supabase.co';
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? 'sb_publishable_cbplc';
+// Hardcoded for now; use .env (EXPO_PUBLIC_SUPABASE_*) for production
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://sqfhtmxufevsidyoofla.supabase.co';
+const supabaseAnonKey =process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNxZmh0bXh1ZmV2c2lkeW9vZmxhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTYzMDcwNCwiZXhwIjoyMDgxMjA2NzA0fQ.bqy7qWcK2jPsIJ7o_MpxluI8vW6rHDkZPtk7zWhopvI';
 
 let _supabase = null;
 if (supabaseUrl && supabaseAnonKey) {

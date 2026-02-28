@@ -234,6 +234,12 @@ router.post('/google', [
     });
   } catch (error) {
     console.error('Google login error:', error);
+    if (error.message && error.message.includes('Invalid API key')) {
+      return res.status(503).json({
+        error: 'Backend Supabase key is invalid. Set SUPABASE_ANON_KEY in your backend .env to the Supabase anon key (Dashboard → Settings → API), not the Google Client ID.',
+        hint: 'See GOOGLE_LOGIN_SETUP.md',
+      });
+    }
     res.status(500).json({ error: error.message });
   }
 });
@@ -253,6 +259,12 @@ router.get('/me', authenticateToken, async (req, res) => {
 
     res.json({ user });
   } catch (error) {
+    if (error.message && error.message.includes('Invalid API key')) {
+      return res.status(503).json({
+        error: 'Backend Supabase key is invalid. Set SUPABASE_ANON_KEY in your backend .env to the Supabase anon key (Dashboard → Settings → API), not the Google Client ID.',
+        hint: 'See GOOGLE_LOGIN_SETUP.md',
+      });
+    }
     res.status(500).json({ error: error.message });
   }
 });
