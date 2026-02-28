@@ -10,8 +10,8 @@ const { sendPasswordResetEmail } = require('../utils/email');
 
 const router = express.Router();
 
-const googleClientId = process.env.GOOGLE_CLIENT_ID || '206763068103-2btqifg7h8o6thme3ijqf91rl8f9jfl8.apps.googleusercontent.com';
-const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET || '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';
+const googleClientId = process.env.GOOGLE_CLIENT_ID
+const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET
 
 // Register
 router.post('/register', [
