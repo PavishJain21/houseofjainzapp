@@ -36,8 +36,11 @@ export default function LoginScreen({ navigation }) {
   const { t } = useContext(LanguageContext);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [errors, setErrors] = useState({ email: '', password: '' });
+  const [otp, setOtp] = useState('');
+  const [errors, setErrors] = useState({ email: '', password: '', otp: '' });
   const [loading, setLoading] = useState(false);
+  const [loginMode, setLoginMode] = useState('password'); // 'password' | 'otp'
+  const [otpSent, setOtpSent] = useState(false);
   const googleCodeHandled = useRef(false);
   const { signIn } = useContext(AuthContext);
 
@@ -75,6 +78,58 @@ export default function LoginScreen({ navigation }) {
   const handlePasswordChange = (text) => {
     setPassword(text);
     if (errors.password) setErrors((prev) => ({ ...prev, password: '' }));
+  };
+
+  const handleSendOtp = async () => {
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      setErrors((prev) => ({ ...prev, email: t('auth.emailRequired') }));
+      return;
+    }
+    if (!EMAIL_REGEX.test(trimmedEmail)) {
+      setErrors((prev) => ({ ...prev, email: t('auth.emailInvalid') }));
+      return;
+    }
+    setErrors((prev) => ({ ...prev, email: '', otp: '' }));
+    setLoading(true);
+    try {
+      const res = await api.post('/auth/send-otp', { email: trimmedEmail });
+      setOtpSent(true);
+      setOtp('');
+      if (res.data?.message) Alert.alert(t('common.success'), res.data.message);
+    } catch (err) {
+      const msg = err.response?.data?.error || err.message || t('auth.invalidCredentials');
+      Alert.alert(t('common.error'), msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    const trimmedEmail = email.trim();
+    const trimmedOtp = otp.trim();
+    if (!trimmedEmail || !EMAIL_REGEX.test(trimmedEmail)) {
+      setErrors((prev) => ({ ...prev, email: t('auth.emailInvalid') }));
+      return;
+    }
+    if (trimmedOtp.length !== 6) {
+      setErrors((prev) => ({ ...prev, otp: 'Enter the 6-digit code' }));
+      return;
+    }
+    setErrors((prev) => ({ ...prev, otp: '' }));
+    setLoading(true);
+    try {
+      const res = await api.post('/auth/verify-otp', { email: trimmedEmail, otp: trimmedOtp });
+      if (res.data?.token) {
+        const userData = { ...res.data.user, role: res.data.user?.role || 'user' };
+        signIn(res.data.token, userData);
+      }
+    } catch (err) {
+      const msg = err.response?.data?.error || err.message || t('auth.invalidCredentials');
+      setErrors((prev) => ({ ...prev, otp: msg }));
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Web: redirect back to our app URL so we can read ?code= from the URL.
@@ -229,31 +284,100 @@ export default function LoginScreen({ navigation }) {
             keyboardType="email-address"
             autoCapitalize="none"
             autoComplete="email"
+            editable={loginMode !== 'otp' || !otpSent}
           />
           {errors.email ? (
             <Text style={styles.errorText}>{errors.email}</Text>
           ) : null}
 
-          <TextInput
-            style={[styles.input, errors.password && styles.inputError]}
-            placeholder={t('auth.password')}
-            placeholderTextColor="#666"
-            value={password}
-            onChangeText={handlePasswordChange}
-            secureTextEntry
-            autoCapitalize="none"
-          />
-          {errors.password ? (
-            <Text style={styles.errorText}>{errors.password}</Text>
-          ) : null}
+          {loginMode === 'password' ? (
+            <>
+              <TextInput
+                style={[styles.input, errors.password && styles.inputError]}
+                placeholder={t('auth.password')}
+                placeholderTextColor="#666"
+                value={password}
+                onChangeText={handlePasswordChange}
+                secureTextEntry
+                autoCapitalize="none"
+              />
+              {errors.password ? (
+                <Text style={styles.errorText}>{errors.password}</Text>
+              ) : null}
+              <TouchableOpacity
+                style={[styles.button, loading && styles.buttonDisabled]}
+                onPress={handleLogin}
+                disabled={loading}
+              >
+                <Text style={styles.buttonText}>
+                  {loading ? t('common.loading') : t('auth.login')}
+                </Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              {otpSent && (
+                <>
+                  <Text style={styles.otpHint}>We sent a 6-digit code to your email.</Text>
+                  <TextInput
+                    style={[styles.input, styles.otpInput, errors.otp && styles.inputError]}
+                    placeholder="Enter 6-digit code"
+                    placeholderTextColor="#666"
+                    value={otp}
+                    onChangeText={(text) => {
+                      setOtp(text.replace(/\D/g, '').slice(0, 6));
+                      if (errors.otp) setErrors((prev) => ({ ...prev, otp: '' }));
+                    }}
+                    keyboardType="number-pad"
+                    maxLength={6}
+                    editable={!loading}
+                  />
+                  {errors.otp ? (
+                    <Text style={styles.errorText}>{errors.otp}</Text>
+                  ) : null}
+                  <TouchableOpacity
+                    style={[styles.button, loading && styles.buttonDisabled]}
+                    onPress={handleVerifyOtp}
+                    disabled={loading}
+                  >
+                    <Text style={styles.buttonText}>
+                      {loading ? t('common.loading') : 'Verify & sign in'}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.linkButton}
+                    onPress={() => { setOtpSent(false); setOtp(''); setErrors((prev) => ({ ...prev, otp: '' })); }}
+                    disabled={loading}
+                  >
+                    <Text style={styles.linkText}>Use a different email</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+              {!otpSent && (
+                <TouchableOpacity
+                  style={[styles.button, loading && styles.buttonDisabled]}
+                  onPress={handleSendOtp}
+                  disabled={loading}
+                >
+                  <Text style={styles.buttonText}>
+                    {loading ? t('common.loading') : 'Send OTP to email'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </>
+          )}
 
           <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled]}
-            onPress={handleLogin}
-            disabled={loading}
+            style={styles.linkButton}
+            onPress={() => {
+              setLoginMode(loginMode === 'password' ? 'otp' : 'password');
+              setOtpSent(false);
+              setOtp('');
+              setErrors({ email: '', password: '', otp: '' });
+            }}
           >
-            <Text style={styles.buttonText}>
-              {loading ? t('common.loading') : t('auth.login')}
+            <Text style={styles.linkText}>
+              {loginMode === 'password' ? 'Login with OTP instead' : 'Login with password instead'}
             </Text>
           </TouchableOpacity>
 
@@ -336,6 +460,16 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginBottom: 12,
     marginTop: 2,
+  },
+  otpHint: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 8,
+  },
+  otpInput: {
+    letterSpacing: 8,
+    fontSize: 20,
+    textAlign: 'center',
   },
   button: {
     backgroundColor: '#4CAF50',
