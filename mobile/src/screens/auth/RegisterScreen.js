@@ -10,7 +10,6 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
-import Picker, { PickerItem } from '../../components/Picker';
 import { AuthContext } from '../../context/AuthContext';
 import api from '../../config/api';
 import Logo from '../../components/Logo';
@@ -19,13 +18,12 @@ export default function RegisterScreen({ navigation }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [religion, setReligion] = useState('Jain');
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
   const { signIn } = useContext(AuthContext);
 
   const handleRegister = async () => {
-    if (!name || !email || !password || !religion) {
+    if (!name || !email || !password) {
       Alert.alert('Error', 'Please fill in all required fields');
       return;
     }
@@ -36,7 +34,6 @@ export default function RegisterScreen({ navigation }) {
         name,
         email,
         password,
-        religion,
         phone: phone || null,
       });
 
@@ -93,21 +90,6 @@ export default function RegisterScreen({ navigation }) {
             onChangeText={setPhone}
             keyboardType="phone-pad"
           />
-
-          <View style={styles.pickerContainer}>
-            <Text style={styles.pickerLabel}>Religion *</Text>
-            <View style={styles.picker}>
-              <Picker
-                selectedValue={religion}
-                onValueChange={setReligion}
-                style={styles.pickerStyle}
-              >
-                <PickerItem label="Jain" value="Jain" />
-                <PickerItem label="Hindu" value="Hindu" />
-                <PickerItem label="Other" value="Other" />
-              </Picker>
-            </View>
-          </View>
 
           <TextInput
             style={styles.input}
@@ -176,22 +158,6 @@ const styles = StyleSheet.create({
     padding: 15,
     marginBottom: 15,
     fontSize: 16,
-  },
-  pickerContainer: {
-    marginBottom: 15,
-  },
-  pickerLabel: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 5,
-  },
-  picker: {
-    backgroundColor: '#f5f5f5',
-    borderRadius: 10,
-    overflow: 'hidden',
-  },
-  pickerStyle: {
-    height: 50,
   },
   button: {
     backgroundColor: '#4CAF50',

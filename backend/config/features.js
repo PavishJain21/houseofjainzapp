@@ -9,7 +9,7 @@ require('dotenv').config({ path: path.join(__dirname, '../../.env') });
 
 // ─── Feature tree: parent → children (child features are disabled when parent is disabled) ───
 const FEATURE_TREE = {
-  auth: { parent: null, label: 'Auth', description: 'Login, register, forgot/reset password, Google login' },
+  auth: { parent: null, label: 'Auth', description: 'Login, register, forgot/reset password' },
   community: { parent: null, label: 'Community', description: 'Feed, create post, my posts, like, comment' },
   forum: { parent: null, label: 'Forum', description: 'Categories, text posts, like, comment, delete by owner, share' },
   marketplace: { parent: null, label: 'Marketplace', description: 'Browse shops and products' },

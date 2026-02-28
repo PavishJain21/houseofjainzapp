@@ -91,7 +91,7 @@ router.get('/categories/:slug/posts', authenticateToken, async (req, res) => {
 // POST /api/forum/posts - create text post
 router.post('/posts', authenticateToken, async (req, res) => {
   try {
-    const { content, category_slug } = req.body;
+    const { content, category_slug, location } = req.body;
     const userId = req.user.userId;
 
     if (!content || typeof content !== 'string' || !content.trim()) {
@@ -110,6 +110,7 @@ router.post('/posts', authenticateToken, async (req, res) => {
           user_id: userId,
           category_slug: category_slug,
           content: content.trim(),
+          location: location && typeof location === 'string' ? location.trim() || null : null,
           created_at: new Date().toISOString(),
         },
       ])

@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS forum_posts (
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     category_slug VARCHAR(50) NOT NULL,
     content TEXT NOT NULL,
+    location VARCHAR(255),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

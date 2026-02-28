@@ -1,4 +1,4 @@
-import React, { useState, useContext, useEffect, useRef } from 'react';
+import React, { useState, useContext } from 'react';
 import LanguageContext from '../../context/LanguageContext';
 import {
   View,
@@ -10,24 +10,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Linking,
 } from 'react-native';
-import * as WebBrowser from 'expo-web-browser';
-import * as QueryParams from 'expo-auth-session/build/QueryParams';
-import { makeRedirectUri } from 'expo-auth-session';
-import Constants from 'expo-constants';
 import { AuthContext } from '../../context/AuthContext';
-import api, { API_BASE_URL } from '../../config/api';
+import api from '../../config/api';
 import Logo from '../../components/Logo';
-
-WebBrowser.maybeCompleteAuthSession();
-
-const GOOGLE_OAUTH_SCOPE = 'openid email profile';
-
-// Google client ID: from app.config.js extra (mobile/.env EXPO_PUBLIC_GOOGLE_CLIENT_ID) or env
-function getGoogleClientId() {
-  return Constants.expoConfig?.extra?.googleClientId || process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || '206763068103-2btqifg7h8o6thme3ijqf91rl8f9jfl8.apps.googleusercontent.com';
-}
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LENGTH = 6;
@@ -41,7 +27,6 @@ export default function LoginScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [loginMode, setLoginMode] = useState('password'); // 'password' | 'otp'
   const [otpSent, setOtpSent] = useState(false);
-  const googleCodeHandled = useRef(false);
   const { signIn } = useContext(AuthContext);
 
   const validateForm = () => {
@@ -131,103 +116,6 @@ export default function LoginScreen({ navigation }) {
       setLoading(false);
     }
   };
-
-  // Web: redirect back to our app URL so we can read ?code= from the URL.
-  // Native: use backend callback URL so Google accepts it (Web client type does not allow custom scheme redirect_uri).
-  const getGoogleRedirectUri = () => {
-    if (Platform.OS === 'web') {
-      return makeRedirectUri({ scheme: 'houseofjainz', path: 'auth/callback' });
-    }
-    if (Platform.OS === 'ios' || Platform.OS === 'android') {
-      const base = (API_BASE_URL || '').replace(/\/$/, '');
-      return base ? `${base}/auth/google/callback` : makeRedirectUri({ path: 'auth/callback' });
-    }
-    return makeRedirectUri({ scheme: 'houseofjainz', path: 'auth/callback' });
-  };
-
-  const handleGoogleLogin = async () => {
-    const clientId = getGoogleClientId();
-    if (!clientId) {
-      Alert.alert(t('common.error'), 'Google sign-in is not configured. Set EXPO_PUBLIC_GOOGLE_CLIENT_ID in mobile/.env and restart the app.');
-      return;
-    }
-    setLoading(true);
-    try {
-      const redirectUri = getGoogleRedirectUri();
-      const authUrl = [
-        'https://accounts.google.com/o/oauth2/v2/auth',
-        `?client_id=${encodeURIComponent(clientId)}`,
-        `&redirect_uri=${encodeURIComponent(redirectUri)}`,
-        '&response_type=code',
-        `&scope=${encodeURIComponent(GOOGLE_OAUTH_SCOPE)}`,
-      ].join('');
-      if (__DEV__) {
-        console.log('[Google Login] Redirect URI (add in Google Cloud Console → Credentials → Authorized redirect URIs):', redirectUri);
-      }
-      // Use Linking so the browser actually opens (openAuthSessionAsync can fail on some iOS/Android)
-      if (Platform.OS === 'web') {
-        window.location.href = authUrl;
-        setLoading(false);
-        return;
-      }
-      await Linking.openURL(authUrl);
-      setLoading(false);
-      // User returns via deep link (houseofjainz://auth/callback?code=...); deep link handler exchanges code and signs in
-    } catch (err) {
-      setLoading(false);
-      Alert.alert(t('common.error'), err.message || t('auth.invalidCredentials'));
-    }
-  };
-
-  // Deep link (native): app opened via houseofjainz://auth/callback?token=...&user=... (from backend) or ?error=...
-  useEffect(() => {
-    const handleDeepLink = (event) => {
-      const url = event?.url;
-      if (!url || !url.includes('auth/callback')) return;
-      const { params } = QueryParams.getQueryParams(url);
-      const errorMsg = params?.error;
-      if (errorMsg) {
-        Alert.alert(t('common.error'), decodeURIComponent(errorMsg));
-        return;
-      }
-      const token = params?.token;
-      const userParam = params?.user;
-      if (token && userParam) {
-        try {
-          const userData = JSON.parse(decodeURIComponent(userParam));
-          signIn(token, { ...userData, role: userData.role || 'user' });
-        } catch (e) {
-          signIn(token, { role: 'user' });
-        }
-      }
-    };
-    const sub = Linking.addEventListener('url', handleDeepLink);
-    return () => sub?.remove?.();
-  }, [signIn, t]);
-
-  // Web: page loaded with ?code= after redirect from Google
-  useEffect(() => {
-    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
-    if (googleCodeHandled.current) return;
-    const search = window.location.search || '';
-    const match = search.match(/[?&]code=([^&]+)/);
-    const code = match && match[1];
-    if (!code || !getGoogleClientId()) return;
-    googleCodeHandled.current = true;
-    const redirectUri = getGoogleRedirectUri();
-    api.post('/auth/google', { code, redirect_uri: redirectUri })
-      .then((response) => {
-        if (response.data.token) {
-          const userData = { ...response.data.user, role: response.data.user?.role || 'user' };
-          signIn(response.data.token, userData);
-          window.history.replaceState({}, '', window.location.pathname || '/');
-        }
-      })
-      .catch((e) => {
-        Alert.alert(t('common.error'), e.message || t('auth.invalidCredentials'));
-        window.history.replaceState({}, '', window.location.pathname || '/');
-      });
-  }, [signIn, t]);
 
   const handleLogin = async () => {
     if (!validateForm()) return;
@@ -381,21 +269,6 @@ export default function LoginScreen({ navigation }) {
             </Text>
           </TouchableOpacity>
 
-          <>
-              <View style={styles.divider}>
-                <View style={styles.dividerLine} />
-                <Text style={styles.dividerText}>or</Text>
-                <View style={styles.dividerLine} />
-              </View>
-              <TouchableOpacity
-                style={[styles.googleButton, loading && styles.buttonDisabled]}
-                onPress={handleGoogleLogin}
-                disabled={loading}
-              >
-                <Text style={styles.googleButtonText}>{t('auth.loginWithGoogle')}</Text>
-              </TouchableOpacity>
-            </>
-
           <TouchableOpacity
             style={styles.linkButton}
             onPress={() => navigation.navigate('ForgotPassword')}
@@ -498,33 +371,6 @@ const styles = StyleSheet.create({
     color: '#4CAF50',
     fontSize: 14,
     fontWeight: '600',
-  },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 20,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#ddd',
-  },
-  dividerText: {
-    marginHorizontal: 12,
-    color: '#999',
-    fontSize: 14,
-  },
-  googleButton: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 15,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ddd',
-  },
-  googleButtonText: {
-    color: '#333',
-    fontSize: 16,
   },
 });
 

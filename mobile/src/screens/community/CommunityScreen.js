@@ -432,6 +432,18 @@ export default function CommunityScreen({ navigation }) {
       <View style={[styles.header, { backgroundColor: theme.colors.surface, shadowColor: theme.colors.shadow }]}>
         <Logo size="small" />
         <Text style={[styles.headerTitle, { color: theme.colors.text }]}>{t('community.title')}</Text>
+        <TouchableOpacity
+          style={styles.headerRefreshButton}
+          onPress={() => onRefresh()}
+          disabled={refreshing}
+          accessibilityLabel="Refresh"
+        >
+          <Ionicons
+            name="refresh"
+            size={24}
+            color={refreshing ? theme.colors.textMuted : theme.colors.text}
+          />
+        </TouchableOpacity>
       </View>
 
       <FlatList
@@ -616,11 +628,16 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   headerTitle: {
+    flex: 1,
     fontSize: 20,
     fontWeight: '800',
     color: '#1a1a1a',
     letterSpacing: -0.5,
     marginLeft: 12,
+  },
+  headerRefreshButton: {
+    padding: 8,
+    marginRight: -8,
   },
   floatingPostButton: {
     position: 'absolute',

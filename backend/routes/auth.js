@@ -2,7 +2,6 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const { OAuth2Client } = require('google-auth-library');
 const supabase = require('../config/supabase');
 const { authenticateToken } = require('../middleware/auth');
 const { body, validationResult } = require('express-validator');
@@ -10,15 +9,11 @@ const { sendPasswordResetEmail, sendOtpEmail } = require('../utils/email');
 
 const router = express.Router();
 
-const googleClientId = process.env.GOOGLE_CLIENT_ID
-const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET
-
 // Register
 router.post('/register', [
   body('email').isEmail().normalizeEmail(),
   body('password').isLength({ min: 6 }),
   body('name').notEmpty().trim(),
-  body('religion').notEmpty().trim(),
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -26,7 +21,8 @@ router.post('/register', [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { email, password, name, religion, phone } = req.body;
+    const { email, password, name, phone } = req.body;
+    const religion = req.body.religion?.trim() || 'Jain';
 
     // Check if user exists
     const { data: existingUser } = await supabase
@@ -268,175 +264,6 @@ router.post('/verify-otp', [
   } catch (error) {
     console.error('Verify OTP error:', error);
     res.status(500).json({ error: error.message });
-  }
-});
-
-// Build backend callback URL for Google (must match Authorized redirect URI in Google Console)
-function getGoogleCallbackRedirectUri(req) {
-  const base = process.env.BACKEND_PUBLIC_URL || `${req.protocol}://${req.get('host')}`;
-  return base.replace(/\/$/, '') + '/api/auth/google/callback';
-}
-
-// Google OAuth callback (GET): used by native app so redirect_uri is HTTPS (Web client allows this).
-// User signs in on Google → Google redirects here with ?code= → we exchange code, then redirect to app with token.
-router.get('/google/callback', async (req, res) => {
-  try {
-    const { code, error: googleError, error_description } = req.query;
-    if (googleError) {
-      const msg = error_description || googleError;
-      return res.redirect(`houseofjainz://auth/callback?error=${encodeURIComponent(msg)}`);
-    }
-    if (!googleClientId || !googleClientSecret) {
-      return res.redirect('houseofjainz://auth/callback?error=' + encodeURIComponent('Google sign-in not configured'));
-    }
-    if (!code) {
-      return res.redirect('houseofjainz://auth/callback?error=' + encodeURIComponent('No code from Google'));
-    }
-    const redirectUri = getGoogleCallbackRedirectUri(req);
-    const client = new OAuth2Client(googleClientId, googleClientSecret, redirectUri);
-    const { tokens } = await client.getToken(code);
-    const idToken = tokens.id_token;
-    if (!idToken) {
-      return res.redirect('houseofjainz://auth/callback?error=' + encodeURIComponent('No ID token'));
-    }
-    const ticket = await client.verifyIdToken({ idToken, audience: googleClientId });
-    const payload = ticket.getPayload();
-    const email = payload.email;
-    const name = payload.name || payload.given_name || email?.split('@')[0] || 'User';
-    if (!email) {
-      return res.redirect('houseofjainz://auth/callback?error=' + encodeURIComponent('No email from Google'));
-    }
-    let { data: user } = await supabase.from('users').select('*').eq('email', email).single();
-    if (!user) {
-      const oauthPasswordPlaceholder = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10);
-      const { data: newUser, error: insertError } = await supabase
-        .from('users')
-        .insert([{ email, password: oauthPasswordPlaceholder, name, religion: 'Jain', phone: null, created_at: new Date().toISOString() }])
-        .select()
-        .single();
-      if (insertError) return res.redirect('houseofjainz://auth/callback?error=' + encodeURIComponent(insertError.message));
-      user = newUser;
-    }
-    const token = jwt.sign({ userId: user.id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '7d' });
-    const { data: userWithRole } = await supabase.from('users').select('role').eq('id', user.id).single();
-    const userJson = encodeURIComponent(JSON.stringify({
-      id: user.id, email: user.email, name: user.name, religion: user.religion, phone: user.phone,
-      role: userWithRole?.role || 'user'
-    }));
-    res.redirect(`houseofjainz://auth/callback?token=${encodeURIComponent(token)}&user=${userJson}`);
-  } catch (err) {
-    console.error('Google callback error:', err);
-    res.redirect('houseofjainz://auth/callback?error=' + encodeURIComponent(err.message || 'Google sign-in failed'));
-  }
-});
-
-// Google login (own implementation: idToken or authorization code)
-// Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env (from Google Cloud Console)
-router.post('/google', async (req, res) => {
-  try {
-    if (!googleClientId) {
-      return res.status(503).json({
-        error: 'Google sign-in is not configured. Set GOOGLE_CLIENT_ID in backend .env.',
-      });
-    }
-
-    const { id_token, code, redirect_uri } = req.body;
-    let payload;
-
-    if (id_token) {
-      // Verify Google ID token (e.g. from a native Google Sign-In SDK)
-      const client = new OAuth2Client(googleClientId);
-      const ticket = await client.verifyIdToken({
-        idToken: id_token,
-        audience: googleClientId,
-      });
-      payload = ticket.getPayload();
-    } else if (code && redirect_uri && googleClientSecret) {
-      // Exchange authorization code for tokens (e.g. from OAuth redirect in app)
-      const client = new OAuth2Client(googleClientId, googleClientSecret, redirect_uri);
-      const { tokens } = await client.getToken(code);
-      const idToken = tokens.id_token;
-      if (!idToken) {
-        return res.status(401).json({ error: 'Google did not return an ID token' });
-      }
-      const ticket = await client.verifyIdToken({
-        idToken,
-        audience: googleClientId,
-      });
-      payload = ticket.getPayload();
-    } else {
-      return res.status(400).json({
-        error: 'Provide either id_token or code + redirect_uri. For code flow, GOOGLE_CLIENT_SECRET must be set.',
-      });
-    }
-
-    const email = payload.email;
-    const name = payload.name || payload.given_name || email?.split('@')[0] || 'User';
-
-    if (!email) {
-      return res.status(400).json({ error: 'Google account must provide an email' });
-    }
-
-    // Find or create user in our users table
-    let { data: user } = await supabase
-      .from('users')
-      .select('*')
-      .eq('email', email)
-      .single();
-
-    if (!user) {
-      const oauthPasswordPlaceholder = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10);
-      const { data: newUser, error: insertError } = await supabase
-        .from('users')
-        .insert([
-          {
-            email,
-            password: oauthPasswordPlaceholder,
-            name,
-            religion: 'Jain',
-            phone: null,
-            created_at: new Date().toISOString(),
-          }
-        ])
-        .select()
-        .single();
-
-      if (insertError) {
-        return res.status(400).json({ error: insertError.message });
-      }
-      user = newUser;
-    }
-
-    const token = jwt.sign(
-      { userId: user.id, email: user.email },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
-    );
-
-    const { data: userWithRole } = await supabase
-      .from('users')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    res.json({
-      message: 'Login successful',
-      token,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        religion: user.religion,
-        phone: user.phone,
-        role: userWithRole?.role || 'user'
-      }
-    });
-  } catch (error) {
-    console.error('Google login error:', error);
-    if (error.message && error.message.includes('redirect_uri')) {
-      return res.status(400).json({ error: 'Invalid or mismatched redirect_uri. Use the same redirect_uri as in the OAuth request.' });
-    }
-    res.status(401).json({ error: 'Invalid or expired Google sign-in' });
   }
 });
 

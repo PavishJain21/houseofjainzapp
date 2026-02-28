@@ -240,6 +240,12 @@ export default function CategoryFeedScreen({ route, navigation }) {
                 year: new Date(item.created_at).getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined,
               })}
             </Text>
+            {item.location ? (
+              <View style={styles.locationRow}>
+                <Ionicons name="location-outline" size={12} color="#8e8e8e" />
+                <Text style={styles.locationText} numberOfLines={1}>{item.location}</Text>
+              </View>
+            ) : null}
           </View>
         </View>
         <TouchableOpacity
@@ -465,6 +471,16 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#999',
     marginTop: 2,
+  },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  locationText: {
+    fontSize: 12,
+    color: '#8e8e8e',
+    marginLeft: 4,
   },
   moreButton: {
     padding: 8,
