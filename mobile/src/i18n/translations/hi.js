@@ -46,6 +46,7 @@ export default {
     emailInvalid: 'कृपया एक मान्य ईमेल पता दर्ज करें',
     passwordRequired: 'पासवर्ड आवश्यक है',
     passwordMinLength: 'पासवर्ड कम से कम 6 अक्षर का होना चाहिए',
+    loginWithGoogle: 'Google के साथ जारी रखें',
   },
 
   // Community

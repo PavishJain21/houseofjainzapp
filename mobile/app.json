@@ -5,18 +5,41 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
-    "splash": {"resizeMode": "contain", "backgroundColor": "#4CAF50"},
-    "ios": {"supportsTablet": true, "bundleIdentifier": "com.houseofjainz.app"},
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#4CAF50"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.houseofjainz.app"
+    },
     "android": {
-      "adaptiveIcon": {"backgroundColor": "#4CAF50"},
+      "adaptiveIcon": {
+        "backgroundColor": "#4CAF50"
+      },
       "package": "com.houseofjainz.app",
-      "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"]
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ]
     },
     "plugins": [
-      ["expo-location", {"locationWhenInUsePermission": "Allow House of Jainz to use your location to find nearby shops and community posts."}]
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow House of Jainz to use your location to find nearby shops and community posts."
+        }
+      ],
+      "expo-web-browser"
     ],
-    "web": {"bundler": "metro"},
+    "web": {
+      "bundler": "metro"
+    },
     "scheme": "houseofjainz",
-    "extra": {"eas": {"projectId": "25136b03-a39b-4ae1-a43e-b9ae3183cbb5"}}
+    "extra": {
+      "eas": {
+        "projectId": "25136b03-a39b-4ae1-a43e-b9ae3183cbb5"
+      }
+    }
   }
 }

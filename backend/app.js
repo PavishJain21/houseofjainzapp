@@ -19,6 +19,8 @@ const consentRoutes = require('./routes/consent');
 const paymentsRoutes = require('./routes/payments');
 const payoutsRoutes = require('./routes/payouts');
 const adminPayoutsRoutes = require('./routes/admin-payouts');
+const { requireFeatureByRoute } = require('./middleware/features');
+const { getEnabledMap, getTree } = require('./config/features');
 
 const app = express();
 
@@ -46,6 +48,14 @@ const uploadsPath = path.join(__dirname, '..', 'uploads');
 if (fs.existsSync(uploadsPath)) {
   app.use('/uploads', express.static(uploadsPath));
 }
+
+// Feature flags: public endpoint (no auth) so app can hide UI
+app.get('/api/features', (req, res) => {
+  res.json({ features: getEnabledMap(), tree: getTree() });
+});
+
+// Block disabled features by route
+app.use(requireFeatureByRoute);
 
 // Routes
 app.use('/api/auth', authRoutes);

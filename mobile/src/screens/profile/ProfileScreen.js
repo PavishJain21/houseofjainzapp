@@ -11,18 +11,21 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '../../context/AuthContext';
 import LanguageContext from '../../context/LanguageContext';
+import useFeatures from '../../context/FeatureContext';
 import api from '../../config/api';
 
 export default function ProfileScreen({ navigation }) {
   const { user, signOut } = useContext(AuthContext);
   const { t, language, changeLanguage } = useContext(LanguageContext);
+  const { isEnabled } = useFeatures();
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
   const [hasShops, setHasShops] = useState(false);
   const [checkingShops, setCheckingShops] = useState(true);
 
   useEffect(() => {
-    checkSellerStatus();
-  }, []);
+    if (isEnabled('seller')) checkSellerStatus();
+    else setCheckingShops(false);
+  }, [isEnabled('seller')]);
 
   const checkSellerStatus = async () => {
     setCheckingShops(true);
@@ -48,57 +51,46 @@ export default function ProfileScreen({ navigation }) {
   };
 
   const menuItems = [
-    {
+    ...(isEnabled('orders') ? [{
       title: t('profile.myOrders'),
       icon: 'receipt-outline',
       onPress: () => navigation.navigate('Orders'),
-    },
-    // Show "Order Received" only for sellers (users who have shops)
-    ...(hasShops ? [{
+    }] : []),
+    ...(isEnabled('seller') && hasShops ? [{
       title: t('profile.orderReceived'),
       icon: 'bag-check-outline',
       onPress: () => navigation.navigate('OrderReceived'),
     }] : []),
-    {
+    ...(isEnabled('community') ? [{
       title: t('profile.myPosts'),
       icon: 'document-text-outline',
       onPress: () => navigation.navigate('MyPosts'),
-    },
-    {
+    }] : []),
+    ...(isEnabled('notifications') ? [{
       title: t('profile.notifications'),
       icon: 'notifications-outline',
       onPress: () => navigation.navigate('Notifications'),
-    },
-    {
+    }] : []),
+    ...(isEnabled('addresses') ? [{
       title: t('profile.myAddresses'),
       icon: 'location-outline',
       onPress: () => navigation.navigate('Addresses'),
-    },
-    {
+    }] : []),
+    ...(isEnabled('seller') ? [{
       title: t('profile.sellerDashboard'),
       icon: 'storefront-outline',
       onPress: () => navigation.navigate('SellerDashboard'),
-    },
+    }] : []),
     {
       title: t('profile.language'),
       icon: 'language-outline',
       onPress: () => setLanguageModalVisible(true),
     },
-    {
-      title: 'Terms and Conditions',
-      icon: 'document-text-outline',
-      onPress: () => navigation.navigate('Terms', { showAcceptButton: false }),
-    },
-    {
-      title: 'Privacy Policy',
-      icon: 'lock-closed-outline',
-      onPress: () => navigation.navigate('Privacy', { showAcceptButton: false }),
-    },
-    {
-      title: 'Cookie Policy',
-      icon: 'restaurant-outline',
-      onPress: () => navigation.navigate('CookiePolicy', { showAcceptButton: false }),
-    },
+    ...(isEnabled('consent') ? [
+      { title: 'Terms and Conditions', icon: 'document-text-outline', onPress: () => navigation.navigate('Terms', { showAcceptButton: false }) },
+      { title: 'Privacy Policy', icon: 'lock-closed-outline', onPress: () => navigation.navigate('Privacy', { showAcceptButton: false }) },
+      { title: 'Cookie Policy', icon: 'restaurant-outline', onPress: () => navigation.navigate('CookiePolicy', { showAcceptButton: false }) },
+    ] : []),
     {
       title: t('auth.logout'),
       icon: 'log-out-outline',

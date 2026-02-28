@@ -46,6 +46,7 @@ export default {
     emailInvalid: 'Please enter a valid email address',
     passwordRequired: 'Password is required',
     passwordMinLength: 'Password must be at least 6 characters',
+    loginWithGoogle: 'Continue with Google',
   },
 
   // Community

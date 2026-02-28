@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import LanguageContext from '../../context/LanguageContext';
 import {
   View,
@@ -10,10 +10,17 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Linking,
 } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
+import * as QueryParams from 'expo-auth-session/build/QueryParams';
+import { makeRedirectUri } from 'expo-auth-session';
 import { AuthContext } from '../../context/AuthContext';
 import api from '../../config/api';
 import Logo from '../../components/Logo';
+import { supabase } from '../../config/supabase';
+
+WebBrowser.maybeCompleteAuthSession();
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LENGTH = 6;
@@ -61,6 +68,71 @@ export default function LoginScreen({ navigation }) {
     setPassword(text);
     if (errors.password) setErrors((prev) => ({ ...prev, password: '' }));
   };
+
+  const createSessionFromUrl = async (url) => {
+    if (!supabase) return null;
+    const { params, errorCode } = QueryParams.getQueryParams(url);
+    if (errorCode) throw new Error(errorCode);
+    const { access_token, refresh_token } = params;
+    if (!access_token) return null;
+    const { data, error } = await supabase.auth.setSession({ access_token, refresh_token });
+    if (error) throw error;
+    return data.session;
+  };
+
+  const handleGoogleLogin = async () => {
+    if (!supabase) {
+      Alert.alert(t('common.error'), 'Google login is not configured. Add EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY to your .env or app.config.js.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const redirectTo = makeRedirectUri({ scheme: 'houseofjainz', path: 'auth/callback' });
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo, skipBrowserRedirect: true },
+      });
+      if (error) throw error;
+      const res = await WebBrowser.openAuthSessionAsync(data?.url ?? '', redirectTo);
+      if (res.type === 'success' && res.url) {
+        const session = await createSessionFromUrl(res.url);
+        if (session?.access_token) {
+          const response = await api.post('/auth/google', { access_token: session.access_token });
+          if (response.data.token) {
+            const userData = { ...response.data.user, role: response.data.user?.role || 'user' };
+            signIn(response.data.token, userData);
+          }
+        }
+      }
+    } catch (err) {
+      Alert.alert(t('common.error'), err.message || t('auth.invalidCredentials'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const handleDeepLink = (event) => {
+      const url = event?.url;
+      if (url && (url.includes('access_token') || url.includes('#'))) {
+        createSessionFromUrl(url).then(async (session) => {
+          if (session?.access_token) {
+            try {
+              const response = await api.post('/auth/google', { access_token: session.access_token });
+              if (response.data.token) {
+                const userData = { ...response.data.user, role: response.data.user?.role || 'user' };
+                signIn(response.data.token, userData);
+              }
+            } catch (e) {
+              Alert.alert(t('common.error'), e.message || t('auth.invalidCredentials'));
+            }
+          }
+        }).catch(console.error);
+      }
+    };
+    const sub = Linking.addEventListener('url', handleDeepLink);
+    return () => sub?.remove?.();
+  }, [signIn, t]);
 
   const handleLogin = async () => {
     if (!validateForm()) return;
@@ -144,6 +216,23 @@ export default function LoginScreen({ navigation }) {
               {loading ? t('common.loading') : t('auth.login')}
             </Text>
           </TouchableOpacity>
+
+          {supabase ? (
+            <>
+              <View style={styles.divider}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>or</Text>
+                <View style={styles.dividerLine} />
+              </View>
+              <TouchableOpacity
+                style={[styles.googleButton, loading && styles.buttonDisabled]}
+                onPress={handleGoogleLogin}
+                disabled={loading}
+              >
+                <Text style={styles.googleButtonText}>{t('auth.loginWithGoogle')}</Text>
+              </TouchableOpacity>
+            </>
+          ) : null}
 
           <TouchableOpacity
             style={styles.linkButton}
@@ -237,6 +326,33 @@ const styles = StyleSheet.create({
     color: '#4CAF50',
     fontSize: 14,
     fontWeight: '600',
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#ddd',
+  },
+  dividerText: {
+    marginHorizontal: 12,
+    color: '#999',
+    fontSize: 14,
+  },
+  googleButton: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 15,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  googleButtonText: {
+    color: '#333',
+    fontSize: 16,
   },
 });
 

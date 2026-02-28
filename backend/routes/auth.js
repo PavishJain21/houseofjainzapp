@@ -149,6 +149,95 @@ router.post('/login', [
   }
 });
 
+// Google login (Supabase OAuth)
+router.post('/google', [
+  body('access_token').notEmpty(),
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { access_token } = req.body;
+
+    // Verify the Supabase access token and get user from Supabase Auth
+    const { data: { user: supabaseUser }, error: authError } = await supabase.auth.getUser(access_token);
+
+    if (authError || !supabaseUser) {
+      return res.status(401).json({ error: 'Invalid or expired Google sign-in' });
+    }
+
+    const email = supabaseUser.email;
+    const name = supabaseUser.user_metadata?.full_name || supabaseUser.user_metadata?.name || email?.split('@')[0] || 'User';
+
+    if (!email) {
+      return res.status(400).json({ error: 'Google account must provide an email' });
+    }
+
+    // Find or create user in our users table
+    let { data: user } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', email)
+      .single();
+
+    if (!user) {
+      // Create new user - OAuth users get a placeholder password (never used)
+      const oauthPasswordPlaceholder = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10);
+      const { data: newUser, error: insertError } = await supabase
+        .from('users')
+        .insert([
+          {
+            email,
+            password: oauthPasswordPlaceholder,
+            name,
+            religion: 'Jain',
+            phone: supabaseUser.phone || null,
+            created_at: new Date().toISOString(),
+          }
+        ])
+        .select()
+        .single();
+
+      if (insertError) {
+        return res.status(400).json({ error: insertError.message });
+      }
+      user = newUser;
+    }
+
+    // Generate our JWT token
+    const token = jwt.sign(
+      { userId: user.id, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    // Get user role
+    const { data: userWithRole } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    res.json({
+      message: 'Login successful',
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        religion: user.religion,
+        phone: user.phone,
+        role: userWithRole?.role || 'user'
+      }
+    });
+  } catch (error) {
+    console.error('Google login error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Get current user
 router.get('/me', authenticateToken, async (req, res) => {
   try {

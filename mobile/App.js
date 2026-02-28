@@ -41,6 +41,7 @@ import AdminOrdersScreen from './src/screens/admin/AdminOrdersScreen';
 import { AuthContext } from './src/context/AuthContext';
 import { LanguageProvider } from './src/context/LanguageContext';
 import { ConsentProvider, ConsentContext } from './src/context/ConsentContext';
+import { FeatureProvider, useFeatures } from './src/context/FeatureContext';
 import { API_BASE_URL } from './src/config/api';
 import api from './src/config/api';
 
@@ -242,6 +243,10 @@ function AdminStack() {
 }
 
 function MainTabs() {
+  const { isEnabled } = useFeatures();
+  const showCommunity = isEnabled('community');
+  const showMarketplace = isEnabled('marketplace');
+  const showCart = isEnabled('cart');
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -265,16 +270,18 @@ function MainTabs() {
         headerShown: false,
       })}
     >
-      <Tab.Screen name="CommunityTab" component={CommunityStack} options={{ title: 'Community' }} />
-      <Tab.Screen name="MarketplaceTab" component={MarketplaceStack} options={{ title: 'Marketplace' }} />
-      <Tab.Screen 
-        name="CartTab" 
-        component={CartStack} 
-        options={({ route }) => ({
-          title: 'Cart',
-          tabBarBadge: route.params?.cartCount > 0 ? route.params.cartCount : undefined,
-        })}
-      />
+      {showCommunity && <Tab.Screen name="CommunityTab" component={CommunityStack} options={{ title: 'Community' }} />}
+      {showMarketplace && <Tab.Screen name="MarketplaceTab" component={MarketplaceStack} options={{ title: 'Marketplace' }} />}
+      {showCart && (
+        <Tab.Screen 
+          name="CartTab" 
+          component={CartStack} 
+          options={({ route }) => ({
+            title: 'Cart',
+            tabBarBadge: route.params?.cartCount > 0 ? route.params.cartCount : undefined,
+          })}
+        />
+      )}
       <Tab.Screen name="ProfileTab" component={ProfileStack} options={{ title: 'Profile' }} />
     </Tab.Navigator>
   );
@@ -366,12 +373,14 @@ export default function App() {
   return (
     <LanguageProvider>
       <AuthContext.Provider value={authContext}>
-        <ConsentProvider>
-          <ConsentNavigator 
-            userToken={userToken} 
-            isSuperAdmin={isSuperAdmin}
-          />
-        </ConsentProvider>
+        <FeatureProvider>
+          <ConsentProvider>
+            <ConsentNavigator 
+              userToken={userToken} 
+              isSuperAdmin={isSuperAdmin}
+            />
+          </ConsentProvider>
+        </FeatureProvider>
       </AuthContext.Provider>
     </LanguageProvider>
   );
@@ -380,7 +389,9 @@ export default function App() {
 // Separate component to handle consent checking
 function ConsentNavigator({ userToken, isSuperAdmin }) {
   const consentContext = useContext(ConsentContext);
+  const { isEnabled } = useFeatures();
   const [showCookieConsent, setShowCookieConsent] = useState(false);
+  const adminEnabled = isEnabled('admin');
 
   // Safely extract values with defaults - ensure context exists
   if (!consentContext) {
@@ -445,7 +456,7 @@ function ConsentNavigator({ userToken, isSuperAdmin }) {
               <Stack.Screen name="Privacy" component={PrivacyScreen} />
               <Stack.Screen name="CookiePolicy" component={CookiePolicyScreen} />
             </Stack.Navigator>
-          ) : isSuperAdmin ? (
+          ) : isSuperAdmin && adminEnabled ? (
             <AdminStack />
           ) : (
             <MainTabs />
