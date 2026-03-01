@@ -5,7 +5,7 @@ const crypto = require('crypto');
 const supabase = require('../config/supabase');
 const { authenticateToken } = require('../middleware/auth');
 const { body, validationResult } = require('express-validator');
-const { sendPasswordResetEmail } = require('../utils/email');
+const { sendPasswordResetEmail, sendOtpEmail } = require('../utils/email');
 
 const router = express.Router();
 
@@ -14,7 +14,6 @@ router.post('/register', [
   body('email').isEmail().normalizeEmail(),
   body('password').isLength({ min: 6 }),
   body('name').notEmpty().trim(),
-  body('religion').notEmpty().trim(),
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -22,7 +21,8 @@ router.post('/register', [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { email, password, name, religion, phone } = req.body;
+    const { email, password, name, phone } = req.body;
+    const religion = req.body.religion?.trim() || 'Jain';
 
     // Check if user exists
     const { data: existingUser } = await supabase
@@ -149,76 +149,105 @@ router.post('/login', [
   }
 });
 
-// Google login (Supabase OAuth)
-router.post('/google', [
-  body('access_token').notEmpty(),
+// -------- OTP Login (email → send OTP → verify OTP) --------
+const OTP_EXPIRY_MINUTES = 10;
+const OTP_RESEND_COOLDOWN_SECONDS = 60;
+
+// Send OTP to email (GoDaddy SMTP)
+router.post('/send-otp', [
+  body('email').isEmail().normalizeEmail(),
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
+    const { email } = req.body;
 
-    const { access_token } = req.body;
-
-    // Verify the Supabase access token and get user from Supabase Auth
-    const { data: { user: supabaseUser }, error: authError } = await supabase.auth.getUser(access_token);
-
-    if (authError || !supabaseUser) {
-      return res.status(401).json({ error: 'Invalid or expired Google sign-in' });
-    }
-
-    const email = supabaseUser.email;
-    const name = supabaseUser.user_metadata?.full_name || supabaseUser.user_metadata?.name || email?.split('@')[0] || 'User';
-
-    if (!email) {
-      return res.status(400).json({ error: 'Google account must provide an email' });
-    }
-
-    // Find or create user in our users table
-    let { data: user } = await supabase
-      .from('users')
-      .select('*')
+    // Cooldown: don't send again within 60s for same email
+    const { data: recentList } = await supabase
+      .from('auth_otps')
+      .select('id')
       .eq('email', email)
+      .gte('created_at', new Date(Date.now() - OTP_RESEND_COOLDOWN_SECONDS * 1000).toISOString())
+      .limit(1);
+    if (recentList && recentList.length > 0) {
+      return res.status(429).json({ error: 'Please wait a minute before requesting another code.' });
+    }
+
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + OTP_EXPIRY_MINUTES);
+
+    await supabase.from('auth_otps').insert([{ email, code, expires_at: expiresAt.toISOString() }]);
+
+    const sent = await sendOtpEmail(email, code);
+    if (!sent) {
+      return res.status(500).json({ error: 'Failed to send OTP. Check server SMTP configuration.' });
+    }
+
+    res.json({ message: 'OTP sent to your email. It expires in ' + OTP_EXPIRY_MINUTES + ' minutes.' });
+  } catch (error) {
+    console.error('Send OTP error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Verify OTP and login (or create user if first time)
+router.post('/verify-otp', [
+  body('email').isEmail().normalizeEmail(),
+  body('otp').isLength({ min: 6, max: 6 }).trim(),
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+    const { email, otp } = req.body;
+
+    const { data: row } = await supabase
+      .from('auth_otps')
+      .select('id, code, expires_at')
+      .eq('email', email)
+      .order('created_at', { ascending: false })
+      .limit(1)
       .single();
 
+    if (!row || row.code !== otp) {
+      return res.status(401).json({ error: 'Invalid or expired code.' });
+    }
+    if (new Date(row.expires_at) < new Date()) {
+      return res.status(401).json({ error: 'Code has expired. Request a new one.' });
+    }
+
+    // Invalidate this OTP (optional: delete or mark used)
+    await supabase.from('auth_otps').delete().eq('id', row.id);
+
+    let { data: user } = await supabase.from('users').select('*').eq('email', email).single();
     if (!user) {
-      // Create new user - OAuth users get a placeholder password (never used)
-      const oauthPasswordPlaceholder = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10);
+      const placeholders = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10);
       const { data: newUser, error: insertError } = await supabase
         .from('users')
-        .insert([
-          {
-            email,
-            password: oauthPasswordPlaceholder,
-            name,
-            religion: 'Jain',
-            phone: supabaseUser.phone || null,
-            created_at: new Date().toISOString(),
-          }
-        ])
+        .insert([{
+          email,
+          password: placeholders,
+          name: email.split('@')[0] || 'User',
+          religion: 'Jain',
+          phone: null,
+          created_at: new Date().toISOString(),
+        }])
         .select()
         .single();
-
-      if (insertError) {
-        return res.status(400).json({ error: insertError.message });
-      }
+      if (insertError) return res.status(400).json({ error: insertError.message });
       user = newUser;
     }
 
-    // Generate our JWT token
     const token = jwt.sign(
       { userId: user.id, email: user.email },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
-
-    // Get user role
-    const { data: userWithRole } = await supabase
-      .from('users')
-      .select('role')
-      .eq('id', user.id)
-      .single();
+    const { data: userWithRole } = await supabase.from('users').select('role').eq('id', user.id).single();
 
     res.json({
       message: 'Login successful',
@@ -229,17 +258,11 @@ router.post('/google', [
         name: user.name,
         religion: user.religion,
         phone: user.phone,
-        role: userWithRole?.role || 'user'
-      }
+        role: userWithRole?.role || 'user',
+      },
     });
   } catch (error) {
-    console.error('Google login error:', error);
-    if (error.message && error.message.includes('Invalid API key')) {
-      return res.status(503).json({
-        error: 'Backend Supabase key is invalid. Set SUPABASE_ANON_KEY in your backend .env to the Supabase anon key (Dashboard → Settings → API), not the Google Client ID.',
-        hint: 'See GOOGLE_LOGIN_SETUP.md',
-      });
-    }
+    console.error('Verify OTP error:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -259,12 +282,6 @@ router.get('/me', authenticateToken, async (req, res) => {
 
     res.json({ user });
   } catch (error) {
-    if (error.message && error.message.includes('Invalid API key')) {
-      return res.status(503).json({
-        error: 'Backend Supabase key is invalid. Set SUPABASE_ANON_KEY in your backend .env to the Supabase anon key (Dashboard → Settings → API), not the Google Client ID.',
-        hint: 'See GOOGLE_LOGIN_SETUP.md',
-      });
-    }
     res.status(500).json({ error: error.message });
   }
 });

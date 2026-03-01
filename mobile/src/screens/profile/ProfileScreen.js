@@ -15,6 +15,7 @@ import { useTheme } from '../../context/ThemeContext';
 import useFeatures from '../../context/FeatureContext';
 import api from '../../config/api';
 import AppBanner from '../../components/AppBanner';
+import Logo from '../../components/Logo';
 
 export default function ProfileScreen({ navigation }) {
   const { user, signOut } = useContext(AuthContext);
@@ -110,6 +111,9 @@ export default function ProfileScreen({ navigation }) {
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <View style={[styles.logoHeader, { backgroundColor: theme.colors.surface }]}>
+        <Logo size="small" />
+      </View>
       <AppBanner
         title="House of Jainz"
         subtitle="Your profile, orders, and preferences in one place."
@@ -239,6 +243,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  logoHeader: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingTop: 50,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e8e8e8',
   },
   header: {
     backgroundColor: '#fff',

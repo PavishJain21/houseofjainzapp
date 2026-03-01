@@ -7,9 +7,11 @@ import {
   ScrollView,
   RefreshControl,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../config/api';
+import Logo from '../../components/Logo';
 
 const CATEGORY_ICONS = {
   'rentals': 'home-outline',
@@ -68,8 +70,13 @@ export default function ForumLandingScreen({ navigation }) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Forum</Text>
-        <Text style={styles.headerSubtitle}>Choose a category to browse or post</Text>
+        <View style={styles.headerLogo}>
+          <Logo size="small" />
+        </View>
+        <View style={styles.headerContent}>
+          <Text style={styles.headerTitle}>Forum</Text>
+          <Text style={styles.headerSubtitle}>Discuss, share & connect by category</Text>
+        </View>
       </View>
 
       <ScrollView
@@ -116,22 +123,45 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0f2f5',
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 56,
+    paddingTop: Platform.OS === 'ios' ? 56 : 48,
     paddingBottom: 20,
+    paddingLeft: 20,
     backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(0,0,0,0.08)',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.04,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  headerLogo: {
+    marginRight: 16,
+  },
+  headerContent: {
+    flex: 1,
+    justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 26,
-    fontWeight: '800',
+    fontSize: 22,
+    fontWeight: '700',
     color: '#1a1a1a',
+    letterSpacing: -0.3,
   },
   headerSubtitle: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 4,
+    fontSize: 13,
+    color: '#6b7280',
+    marginTop: 2,
+    fontWeight: '500',
   },
   scroll: {
     padding: 16,

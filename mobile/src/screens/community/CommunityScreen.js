@@ -27,6 +27,7 @@ import LanguageContext from '../../context/LanguageContext';
 import { useTheme } from '../../context/ThemeContext';
 import AudioPlayer from '../../components/AudioPlayer';
 import AppBanner from '../../components/AppBanner';
+import Logo from '../../components/Logo';
 
 export default function CommunityScreen({ navigation }) {
   const { user } = useContext(AuthContext);
@@ -344,6 +345,7 @@ export default function CommunityScreen({ navigation }) {
 
   const renderPost = ({ item }) => (
     <View style={styles.post}>
+      {/* Instagram-style: header row */}
       <View style={styles.postHeader}>
         <View style={styles.userInfo}>
           <View style={styles.avatar}>
@@ -352,79 +354,75 @@ export default function CommunityScreen({ navigation }) {
             </Text>
           </View>
           <View style={styles.userDetails}>
-            <View style={styles.userNameRow}>
-              <Text style={styles.userName}>{item.user?.name || 'User'}</Text>
-              {userCity && item.location && item.location.toLowerCase() === userCity.toLowerCase() && (
-                <View style={styles.nearbyBadge}>
-                  <Text style={styles.nearbyBadgeText}>Nearby</Text>
-                </View>
-              )}
-            </View>
+            <Text style={styles.userName} numberOfLines={1}>{item.user?.name || 'User'}</Text>
             {item.location && (
-              <View style={styles.locationContainer}>
-                <Ionicons name="location" size={14} color="#4CAF50" />
-                <Text style={styles.location}>{item.location}</Text>
+              <View style={styles.locationRow}>
+                <Ionicons name="location-outline" size={12} color="#8e8e8e" />
+                <Text style={styles.location} numberOfLines={1}>{item.location}</Text>
               </View>
             )}
           </View>
         </View>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.moreButton}
           onPress={() => handleMoreOptions(item)}
           activeOpacity={0.7}
         >
-          <Ionicons name="ellipsis-horizontal" size={20} color="#999" />
+          <Ionicons name="ellipsis-horizontal" size={20} color="#262626" />
         </TouchableOpacity>
       </View>
 
+      {/* Photo: full-width card image */}
       {item.image_url && (
-        <Image 
-          source={{ 
+        <Image
+          source={{
             uri: item.image_url.startsWith('http') || item.image_url.startsWith('https')
-              ? item.image_url 
-              : `${API_BASE_URL.replace('/api', '')}${item.image_url}` 
-          }} 
-          style={styles.postImage} 
+              ? item.image_url
+              : `${API_BASE_URL.replace('/api', '')}${item.image_url}`,
+          }}
+          style={styles.postImage}
+          resizeMode="cover"
         />
       )}
 
-      <Text style={styles.postContent}>{item.content}</Text>
-
+      {/* Action bar: like, comment (Instagram-style) */}
       <View style={styles.postActions}>
         <TouchableOpacity
-          style={[styles.actionButton, item.isLiked && styles.actionButtonActive]}
+          style={styles.actionButton}
           onPress={() => handleLike(item.id)}
           activeOpacity={0.7}
         >
-          <Text style={[styles.joinHandsIcon, item.isLiked && styles.joinHandsIconLiked]}>
-            🙏
-          </Text>
-          <Text style={[styles.actionText, item.isLiked && styles.likedText]}>
-            {item.likesCount || 0}
-          </Text>
+          <Ionicons
+            name={item.isLiked ? 'heart' : 'heart-outline'}
+            size={26}
+            color={item.isLiked ? '#4CAF50' : '#262626'}
+          />
+          {(item.likesCount || 0) > 0 && (
+            <Text style={[styles.actionCount, item.isLiked && styles.actionCountLiked]}>
+              {item.likesCount}
+            </Text>
+          )}
         </TouchableOpacity>
-
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.actionButton}
           onPress={() => handleComment(item.id)}
           activeOpacity={0.7}
         >
-          <Ionicons name="chatbubble-outline" size={22} color="#666" />
-          <Text style={styles.actionText}>{item.commentsCount || 0}</Text>
+          <Ionicons name="chatbubble-outline" size={24} color="#262626" />
+          {(item.commentsCount || 0) > 0 && (
+            <Text style={styles.actionCount}>{item.commentsCount}</Text>
+          )}
         </TouchableOpacity>
-
         <View style={styles.actionSpacer} />
-        
-        <View style={styles.timeContainer}>
-          <Ionicons name="time-outline" size={14} color="#999" />
-          <Text style={styles.postTime}>
-            {new Date(item.created_at).toLocaleDateString('en-US', { 
-              month: 'short', 
-              day: 'numeric',
-              year: new Date(item.created_at).getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined
-            })}
-          </Text>
-        </View>
+      </View>
+
+      {/* Caption: little text, username + content (Instagram-style) */}
+      <View style={styles.captionBlock}>
+        <Text style={styles.captionText} numberOfLines={2}>
+          <Text style={styles.captionUsername}>{item.user?.name || 'User'}</Text>
+          {' '}
+          <Text style={styles.captionContent}>{item.content}</Text>
+        </Text>
       </View>
     </View>
   );
@@ -432,7 +430,20 @@ export default function CommunityScreen({ navigation }) {
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <View style={[styles.header, { backgroundColor: theme.colors.surface, shadowColor: theme.colors.shadow }]}>
+        <Logo size="small" />
         <Text style={[styles.headerTitle, { color: theme.colors.text }]}>{t('community.title')}</Text>
+        <TouchableOpacity
+          style={styles.headerRefreshButton}
+          onPress={() => onRefresh()}
+          disabled={refreshing}
+          accessibilityLabel="Refresh"
+        >
+          <Ionicons
+            name="refresh"
+            size={24}
+            color={refreshing ? theme.colors.textMuted : theme.colors.text}
+          />
+        </TouchableOpacity>
       </View>
 
       <FlatList
@@ -603,11 +614,10 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
+    padding: 16,
     paddingTop: 50,
-    paddingBottom: 18,
+    paddingBottom: 14,
     backgroundColor: '#fff',
     borderBottomWidth: 0,
     shadowColor: '#000',
@@ -618,10 +628,16 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   headerTitle: {
-    fontSize: 24,
+    flex: 1,
+    fontSize: 20,
     fontWeight: '800',
     color: '#1a1a1a',
     letterSpacing: -0.5,
+    marginLeft: 12,
+  },
+  headerRefreshButton: {
+    padding: 8,
+    marginRight: -8,
   },
   floatingPostButton: {
     position: 'absolute',
@@ -658,168 +674,111 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   list: {
-    padding: 12,
+    padding: 0,
     paddingBottom: 100,
   },
   audioPlayerContainer: {
-    marginBottom: 16,
-    marginHorizontal: 2,
+    marginBottom: 12,
+    marginHorizontal: 12,
   },
   post: {
     backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 18,
-    marginBottom: 20,
-    marginHorizontal: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 5,
-    borderWidth: 1,
-    borderColor: '#f0f0f0',
+    marginBottom: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#dbdbdb',
   },
   postHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 14,
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
   },
   userInfo: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+    minWidth: 0,
   },
   avatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: '#4CAF50',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 14,
-    shadowColor: '#4CAF50',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+    marginRight: 12,
   },
   avatarText: {
     color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 22,
+    fontWeight: '600',
+    fontSize: 16,
   },
   userDetails: {
     flex: 1,
-  },
-  userNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-    flexWrap: 'wrap',
+    minWidth: 0,
   },
   userName: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1a1a1a',
-    marginRight: 8,
-    letterSpacing: -0.3,
-  },
-  nearbyBadge: {
-    backgroundColor: '#4CAF50',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  nearbyBadgeText: {
-    color: '#fff',
-    fontSize: 10,
+    fontSize: 14,
     fontWeight: '600',
+    color: '#262626',
   },
-  locationContainer: {
+  locationRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: 2,
   },
   location: {
-    fontSize: 13,
-    color: '#666',
+    fontSize: 12,
+    color: '#8e8e8e',
     marginLeft: 4,
-    fontWeight: '500',
   },
   moreButton: {
     padding: 8,
-    marginLeft: 8,
   },
   postImage: {
     width: '100%',
-    height: 280,
-    borderRadius: 16,
-    marginBottom: 14,
-    marginTop: 10,
-    resizeMode: 'cover',
+    aspectRatio: 1,
     backgroundColor: '#f0f0f0',
-  },
-  postContent: {
-    fontSize: 16,
-    color: '#2c2c2c',
-    marginBottom: 14,
-    lineHeight: 24,
-    fontWeight: '400',
   },
   postActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 14,
-    paddingTop: 14,
-    borderTopWidth: 1,
-    borderTopColor: '#f5f5f5',
+    paddingVertical: 8,
+    paddingHorizontal: 4,
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginRight: 20,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    backgroundColor: '#f8f9fa',
+    marginLeft: 14,
   },
-  actionButtonActive: {
-    backgroundColor: '#fff5f5',
-  },
-  actionText: {
+  actionCount: {
     marginLeft: 6,
-    fontSize: 15,
-    color: '#666',
+    fontSize: 14,
+    color: '#262626',
     fontWeight: '600',
   },
-  joinHandsIcon: {
-    fontSize: 22,
-    color: '#666',
-  },
-  joinHandsIconLiked: {
-    opacity: 1,
-  },
-  likedText: {
+  actionCountLiked: {
     color: '#4CAF50',
-    fontWeight: '700',
   },
   actionSpacer: {
     flex: 1,
   },
-  timeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 12,
-    backgroundColor: '#f8f9fa',
+  captionBlock: {
+    paddingHorizontal: 14,
+    paddingBottom: 14,
   },
-  postTime: {
-    fontSize: 12,
-    color: '#999',
-    marginLeft: 4,
-    fontWeight: '500',
+  captionText: {
+    fontSize: 14,
+    color: '#262626',
+    lineHeight: 20,
+  },
+  captionUsername: {
+    fontWeight: '600',
+    color: '#262626',
+  },
+  captionContent: {
+    fontWeight: '400',
+    color: '#262626',
   },
   modalOverlay: {
     flex: 1,
