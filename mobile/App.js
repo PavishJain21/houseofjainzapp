@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { View, ActivityIndicator, Platform, StyleSheet } from 'react-native';
+import { playDailyWelcomeSoundIfNeeded } from './src/utils/dailyWelcomeSound';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -57,6 +58,7 @@ import PrivacyScreen from './src/screens/consent/PrivacyScreen';
 import CookiePolicyScreen from './src/screens/consent/CookiePolicyScreen';
 import CookieConsent from './src/components/CookieConsent';
 import SharedPostView from './src/screens/shared/SharedPostView';
+import PublicPrivacyView from './src/screens/shared/PublicPrivacyView';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -359,6 +361,14 @@ export default function App() {
     checkToken();
   }, []);
 
+  // Play daily welcome sound (jaijinendra.mp3) once per day as soon as app opens
+  useEffect(() => {
+    const t = setTimeout(() => {
+      playDailyWelcomeSoundIfNeeded();
+    }, 500);
+    return () => clearTimeout(t);
+  }, []);
+
   const checkToken = async () => {
     try {
       const token = await AsyncStorage.getItem('userToken');
@@ -431,9 +441,18 @@ export default function App() {
     return null;
   }
 
-  // Web: shared post link (houseofjainz.com/post/123 or /forum/post/123) — show only that post
+  // Web: public URLs (shared post, privacy policy)
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
     const path = window.location.pathname || '';
+    if (path === '/privacypolicy') {
+      return (
+        <View style={styles.webRoot}>
+          <View style={styles.webMobileFrame}>
+            <PublicPrivacyView />
+          </View>
+        </View>
+      );
+    }
     const communityMatch = path.match(/^\/post\/(\d+)$/);
     if (communityMatch) {
       return (
