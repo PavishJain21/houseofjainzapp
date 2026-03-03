@@ -320,6 +320,48 @@ router.post('/:id/messages', authenticateToken, async (req, res) => {
 });
 
 /**
+ * GET /api/sangh/:id/members/search - Search platform users to add. Admin only. Query: q (name/email), limit.
+ * Excludes current members. Returns id, name, email.
+ */
+router.get('/:id/members/search', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { id } = req.params;
+    const { q = '', limit = 30 } = req.query;
+    const searchTerm = String(q).trim();
+    const limitNum = Math.min(50, Math.max(5, parseInt(limit, 10) || 20));
+
+    const { data: sangh } = await supabase.from('sanghs').select('id, created_by').eq('id', id).single();
+    if (!sangh) return res.status(404).json({ error: 'Group not found' });
+    if (sangh.created_by !== userId) return res.status(403).json({ error: 'Only the group admin can search and add members' });
+
+    const { data: existing } = await supabase.from('sangh_members').select('user_id').eq('sangh_id', id);
+    const memberIds = (existing || []).map((r) => r.user_id);
+
+    let query = supabase
+      .from('users')
+      .select('id, name, email')
+      .limit(limitNum);
+
+    if (memberIds.length > 0) {
+      const excluded = memberIds.map((uid) => `"${uid}"`).join(',');
+      query = query.not('id', 'in', `(${excluded})`);
+    }
+    if (searchTerm.length > 0) {
+      const term = `%${searchTerm}%`;
+      query = query.or(`name.ilike.${term},email.ilike.${term}`);
+    }
+
+    const { data: users, error } = await query.order('name');
+    if (error) return res.status(400).json({ error: error.message });
+
+    res.json({ users: users || [] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
  * POST /api/sangh/:id/members - Add a member. Admin (creator) only. Body: { user_id } or { email }.
  */
 router.post('/:id/members', authenticateToken, async (req, res) => {
@@ -334,7 +376,8 @@ router.post('/:id/members', authenticateToken, async (req, res) => {
 
     let toAddId = targetUserId;
     if (!toAddId && email) {
-      const { data: u } = await supabase.from('users').select('id').eq('email', String(email).trim().toLowerCase()).single();
+      const emailVal = String(email).trim();
+      const { data: u } = await supabase.from('users').select('id').ilike('email', emailVal).maybeSingle();
       if (!u) return res.status(404).json({ error: 'User not found with that email' });
       toAddId = u.id;
     }
