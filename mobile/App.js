@@ -368,7 +368,7 @@ function MainTabs() {
         tabBarInactiveTintColor: theme.colors.tabInactive,
         tabBarStyle: {
           backgroundColor: theme.colors.surface,
-          ...(Platform.OS === 'web' ? { paddingBottom: 24, minHeight: 64 } : {}),
+          ...(Platform.OS === 'web' ? { paddingBottom: 56, minHeight: 96 } : {}),
         },
         headerShown: false,
       })}
@@ -419,7 +419,7 @@ export default function App() {
       style.textContent = `
         html, body, #root { min-height: 100vh; min-height: 100dvh; box-sizing: border-box; margin: 0; }
         /* Keep bottom nav visible in Chrome/Safari - minimum bottom padding when safe-area is 0 */
-        [data-web-mobile-frame] { padding-bottom: max(env(safe-area-inset-bottom, 0px), 24px) !important; }
+        [data-web-mobile-frame] { padding-bottom: max(env(safe-area-inset-bottom, 0px), 56px) !important; }
       `;
       document.head.appendChild(style);
     }
