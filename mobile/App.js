@@ -408,7 +408,7 @@ export default function App() {
     checkToken();
   }, []);
 
-  // Web: viewport-fit=cover and body padding so Safari/Chrome don't hide header/footer
+  // Web: viewport-fit=cover, body padding, and Google AdSense meta
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof document === 'undefined') return;
     let meta = document.querySelector('meta[name="viewport"]');
@@ -417,6 +417,12 @@ export default function App() {
       if (!content.includes('viewport-fit=cover')) {
         meta.setAttribute('content', content + (content ? ', ' : '') + 'viewport-fit=cover');
       }
+    }
+    if (!document.querySelector('meta[name="google-adsense-account"]')) {
+      const adsenseMeta = document.createElement('meta');
+      adsenseMeta.name = 'google-adsense-account';
+      adsenseMeta.content = 'ca-pub-7344910238595105';
+      document.head.appendChild(adsenseMeta);
     }
     const styleId = 'houseofjainz-safe-area';
     if (!document.getElementById(styleId)) {

@@ -337,10 +337,14 @@ router.get('/:id/members/search', authenticateToken, async (req, res) => {
 
     const { data: existing } = await supabase.from('sangh_members').select('user_id').eq('sangh_id', id);
     const memberIds = (existing || []).map((r) => r.user_id);
+    if (!memberIds.includes(userId)) {
+      memberIds.push(userId);
+    }
 
     let query = supabase
       .from('users')
       .select('id, name, email')
+      .neq('role', 'superadmin')
       .limit(limitNum);
 
     if (memberIds.length > 0) {
