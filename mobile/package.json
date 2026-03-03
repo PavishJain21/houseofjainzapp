@@ -9,7 +9,8 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "build:web": "expo export --platform web",
-    "build:web:dev": "expo export --platform web --dev"
+    "build:web:dev": "expo export --platform web --dev",
+    "build:android:aab": "eas build --platform android --profile production"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
