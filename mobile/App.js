@@ -399,6 +399,27 @@ export default function App() {
     checkToken();
   }, []);
 
+  // Web: viewport-fit=cover and body padding so Safari/Chrome don't hide header/footer
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+    let meta = document.querySelector('meta[name="viewport"]');
+    if (meta) {
+      const content = meta.getAttribute('content') || '';
+      if (!content.includes('viewport-fit=cover')) {
+        meta.setAttribute('content', content + (content ? ', ' : '') + 'viewport-fit=cover');
+      }
+    }
+    const styleId = 'houseofjainz-safe-area';
+    if (!document.getElementById(styleId)) {
+      const style = document.createElement('style');
+      style.id = styleId;
+      style.textContent = `
+        html, body, #root { min-height: 100vh; min-height: 100dvh; box-sizing: border-box; margin: 0; }
+      `;
+      document.head.appendChild(style);
+    }
+  }, []);
+
   // Play daily welcome sound (jaijinendra.mp3) once per day as soon as app opens
   useEffect(() => {
     const t = setTimeout(() => {
@@ -584,11 +605,11 @@ export default function App() {
     </LanguageProvider>
   );
 
-  // On web: always show app in mobile viewport (fixed width, centered)
+  // On web: always show app in mobile viewport (fixed width, centered) with safe-area padding
   if (Platform.OS === 'web') {
     return (
       <View style={styles.webRoot}>
-        <View style={styles.webMobileFrame}>
+        <View style={[styles.webMobileFrame, styles.webFrameSafeArea]}>
           {appContent}
         </View>
       </View>
@@ -616,6 +637,12 @@ const styles = StyleSheet.create({
     minHeight: '100vh',
     backgroundColor: '#000',
     overflow: 'hidden',
+  },
+  webFrameSafeArea: {
+    paddingTop: 'env(safe-area-inset-top, 0px)',
+    paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+    paddingLeft: 'env(safe-area-inset-left, 0px)',
+    paddingRight: 'env(safe-area-inset-right, 0px)',
   },
   loadingCenter: {
     justifyContent: 'center',
