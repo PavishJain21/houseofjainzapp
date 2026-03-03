@@ -1,6 +1,12 @@
 import { Platform, Share, Alert } from 'react-native';
 import { SHARE_APP_URL } from '../config/api';
 
+/** Build public URL for a single post (used when sharing). type: 'community' | 'forum' */
+export function getPostShareUrl(postId, type = 'community') {
+  const base = SHARE_APP_URL.replace(/\/$/, '');
+  return type === 'forum' ? `${base}/forum/post/${postId}` : `${base}/post/${postId}`;
+}
+
 /**
  * Share content with optional URL. On web uses navigator.share (with app URL) or clipboard fallback.
  * On native uses React Native Share API; message includes app URL when provided.

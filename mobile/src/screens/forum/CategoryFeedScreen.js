@@ -19,9 +19,8 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../config/api';
-import { SHARE_APP_URL } from '../../config/api';
 import { AuthContext } from '../../context/AuthContext';
-import { shareContent } from '../../utils/share';
+import { shareContent, getPostShareUrl } from '../../utils/share';
 import { confirmAsync } from '../../utils/alert';
 
 export default function CategoryFeedScreen({ route, navigation }) {
@@ -197,12 +196,11 @@ export default function CategoryFeedScreen({ route, navigation }) {
 
   const handleShare = async (post) => {
     setPostOptionsPost(null);
-    let message = (post.content || '').trim();
-    if (post.user?.name) message += `\n\n- ${post.user.name}`;
+    const url = getPostShareUrl(post.id, 'forum');
     await shareContent({
-      title: `Post by ${post.user?.name || 'User'}`,
-      message: message || 'Check out this post',
-      url: SHARE_APP_URL,
+      title: 'Post from House of Jainz',
+      message: '',
+      url,
     });
   };
 

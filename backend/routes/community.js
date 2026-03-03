@@ -507,6 +507,42 @@ router.get('/posts/my-posts', authenticateToken, async (req, res) => {
   }
 });
 
+// Get single post by ID (public, for shared links) - must be after /posts/my-posts
+router.get('/posts/:postId', async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const { data: post, error } = await supabase
+      .from('posts')
+      .select('*, user:users(id, name, email)')
+      .eq('id', postId)
+      .single();
+
+    if (error || !post) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
+
+    const { count: likesCount } = await supabase
+      .from('likes')
+      .select('*', { count: 'exact', head: true })
+      .eq('post_id', post.id);
+
+    const { count: commentsCount } = await supabase
+      .from('comments')
+      .select('*', { count: 'exact', head: true })
+      .eq('post_id', post.id);
+
+    res.json({
+      post: {
+        ...post,
+        likesCount: likesCount || 0,
+        commentsCount: commentsCount || 0,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Delete post (only by owner)
 router.delete('/posts/:postId', authenticateToken, async (req, res) => {
   try {

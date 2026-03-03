@@ -56,6 +56,7 @@ import TermsScreen from './src/screens/consent/TermsScreen';
 import PrivacyScreen from './src/screens/consent/PrivacyScreen';
 import CookiePolicyScreen from './src/screens/consent/CookiePolicyScreen';
 import CookieConsent from './src/components/CookieConsent';
+import SharedPostView from './src/screens/shared/SharedPostView';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -428,6 +429,31 @@ export default function App() {
       );
     }
     return null;
+  }
+
+  // Web: shared post link (houseofjainz.com/post/123 or /forum/post/123) — show only that post
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    const path = window.location.pathname || '';
+    const communityMatch = path.match(/^\/post\/(\d+)$/);
+    if (communityMatch) {
+      return (
+        <View style={styles.webRoot}>
+          <View style={styles.webMobileFrame}>
+            <SharedPostView postId={communityMatch[1]} type="community" />
+          </View>
+        </View>
+      );
+    }
+    const forumMatch = path.match(/^\/forum\/post\/(\d+)$/);
+    if (forumMatch) {
+      return (
+        <View style={styles.webRoot}>
+          <View style={styles.webMobileFrame}>
+            <SharedPostView postId={forumMatch[1]} type="forum" />
+          </View>
+        </View>
+      );
+    }
   }
 
   // Check if user is superadmin or admin

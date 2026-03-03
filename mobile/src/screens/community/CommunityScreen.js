@@ -20,10 +20,10 @@ import {
 import * as Location from 'expo-location';
 import { getLocationWithFallback } from '../../utils/location';
 import { Ionicons } from '@expo/vector-icons';
-import api, { API_BASE_URL, SHARE_APP_URL } from '../../config/api';
+import api, { API_BASE_URL } from '../../config/api';
 import { AuthContext } from '../../context/AuthContext';
 import LanguageContext from '../../context/LanguageContext';
-import { shareContent } from '../../utils/share';
+import { shareContent, getPostShareUrl } from '../../utils/share';
 import { confirmAsync } from '../../utils/alert';
 import { useTheme } from '../../context/ThemeContext';
 import AudioPlayer from '../../components/AudioPlayer';
@@ -271,13 +271,11 @@ export default function CommunityScreen({ navigation }) {
 
   const handleShare = async (post) => {
     setPostOptionsPost(null);
-    let message = post.content || '';
-    if (post.image_url) message += `\n\n${post.image_url}`;
-    if (post.user?.name) message += `\n\n- ${post.user.name}`;
+    const url = getPostShareUrl(post.id, 'community');
     await shareContent({
-      title: `Post by ${post.user?.name || 'User'}`,
-      message: message.trim(),
-      url: SHARE_APP_URL,
+      title: 'Post from House of Jainz',
+      message: '',
+      url,
     });
   };
 

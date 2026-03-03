@@ -24,6 +24,7 @@ export default function LoginScreen({ navigation }) {
   const [password, setPassword] = useState('');
   const [otp, setOtp] = useState('');
   const [errors, setErrors] = useState({ email: '', password: '', otp: '' });
+  const [loginError, setLoginError] = useState('');
   const [loading, setLoading] = useState(false);
   const [loginMode, setLoginMode] = useState('password'); // 'password' | 'otp'
   const [otpSent, setOtpSent] = useState(false);
@@ -58,11 +59,13 @@ export default function LoginScreen({ navigation }) {
   const handleEmailChange = (text) => {
     setEmail(text);
     if (errors.email) setErrors((prev) => ({ ...prev, email: '' }));
+    if (loginError) setLoginError('');
   };
 
   const handlePasswordChange = (text) => {
     setPassword(text);
     if (errors.password) setErrors((prev) => ({ ...prev, password: '' }));
+    if (loginError) setLoginError('');
   };
 
   const handleSendOtp = async () => {
@@ -120,6 +123,7 @@ export default function LoginScreen({ navigation }) {
   const handleLogin = async () => {
     if (!validateForm()) return;
 
+    setLoginError('');
     setLoading(true);
     try {
       const response = await api.post('/auth/login', {
@@ -142,10 +146,13 @@ export default function LoginScreen({ navigation }) {
         signIn(response.data.token, userData);
       }
     } catch (error) {
-      Alert.alert(
-        t('common.error'),
-        error.response?.data?.error || t('auth.invalidCredentials')
-      );
+      const msg = error.response?.data?.error
+        || (error.response?.data?.errors && error.response.data.errors[0]?.msg)
+        || t('auth.invalidCredentials');
+      setLoginError(msg);
+      if (Platform.OS !== 'web') {
+        Alert.alert(t('common.error'), msg);
+      }
     } finally {
       setLoading(false);
     }
@@ -201,6 +208,9 @@ export default function LoginScreen({ navigation }) {
                   {loading ? t('common.loading') : t('auth.login')}
                 </Text>
               </TouchableOpacity>
+              {loginError ? (
+                <Text style={styles.errorText}>{loginError}</Text>
+              ) : null}
             </>
           ) : (
             <>

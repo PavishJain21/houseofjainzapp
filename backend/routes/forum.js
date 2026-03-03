@@ -135,6 +135,42 @@ router.post('/posts', authenticateToken, async (req, res) => {
   }
 });
 
+// GET /api/forum/posts/:postId - single post (public, for shared links)
+router.get('/posts/:postId', async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const { data: post, error } = await supabase
+      .from('forum_posts')
+      .select('*, user:users(id, name, email)')
+      .eq('id', postId)
+      .single();
+
+    if (error || !post) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
+
+    const { count: likesCount } = await supabase
+      .from('forum_likes')
+      .select('*', { count: 'exact', head: true })
+      .eq('post_id', post.id);
+
+    const { count: commentsCount } = await supabase
+      .from('forum_comments')
+      .select('*', { count: 'exact', head: true })
+      .eq('post_id', post.id);
+
+    res.json({
+      post: {
+        ...post,
+        likesCount: likesCount || 0,
+        commentsCount: commentsCount || 0,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // POST /api/forum/posts/:postId/like - toggle like
 router.post('/posts/:postId/like', authenticateToken, async (req, res) => {
   try {
