@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useContext } from 'react';
-import { View, ActivityIndicator, Platform, StyleSheet } from 'react-native';
+import React, { useState, useEffect, useContext, useRef } from 'react';
+import { View, ActivityIndicator, Platform, StyleSheet, Linking } from 'react-native';
 import { playDailyWelcomeSoundIfNeeded } from './src/utils/dailyWelcomeSound';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -12,6 +12,7 @@ import LoginScreen from './src/screens/auth/LoginScreen';
 import RegisterScreen from './src/screens/auth/RegisterScreen';
 import ForgotPasswordScreen from './src/screens/auth/ForgotPasswordScreen';
 import ResetPasswordScreen from './src/screens/auth/ResetPasswordScreen';
+import AuthCallbackScreen from './src/screens/auth/AuthCallbackScreen';
 import CommunityScreen from './src/screens/community/CommunityScreen';
 import ForumLandingScreen from './src/screens/forum/ForumLandingScreen';
 import CategoryFeedScreen from './src/screens/forum/CategoryFeedScreen';
@@ -435,6 +436,32 @@ export default function App() {
     }
   };
 
+  const handledGoogleCallback = useRef(false);
+
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    const handleUrl = async (url) => {
+      if (!url || !url.includes('auth/callback')) return;
+      const match = url.match(/[?&]token=([^&]+)/);
+      const token = match ? decodeURIComponent(match[1]) : null;
+      if (!token) return;
+      handledGoogleCallback.current = true;
+      try {
+        const res = await api.get('/auth/me', { headers: { Authorization: `Bearer ${token}` } });
+        if (res.data?.user) {
+          const userData = { ...res.data.user, role: res.data.user?.role || 'user' };
+          await AsyncStorage.setItem('userToken', token);
+          await AsyncStorage.setItem('userData', JSON.stringify(userData));
+          setUserToken(token);
+          setUser(userData);
+        }
+      } catch (_) {}
+    };
+    Linking.getInitialURL().then(handleUrl);
+    const sub = Linking.addEventListener('url', ({ url }) => handleUrl(url));
+    return () => sub.remove();
+  }, []);
+
   const refreshUser = async () => {
     try {
       const token = await AsyncStorage.getItem('userToken');
@@ -694,11 +721,19 @@ function ConsentNavigator({ userToken, isSuperAdmin, onForceMainTabsChange, forc
             </AuthGuard>
           )
         ) : (
-          <Stack.Navigator screenOptions={{ headerShown: false }}>
+          <Stack.Navigator
+            screenOptions={{ headerShown: false }}
+            initialRouteName={
+              Platform.OS === 'web' && typeof window !== 'undefined' && (window.location.pathname || '').replace(/\/$/, '') === '/auth/callback'
+                ? 'AuthCallback'
+                : 'Login'
+            }
+          >
             <Stack.Screen name="Login" component={WithGuestGuard(LoginScreen)} />
             <Stack.Screen name="Register" component={WithGuestGuard(RegisterScreen)} />
             <Stack.Screen name="ForgotPassword" component={WithGuestGuard(ForgotPasswordScreen)} />
             <Stack.Screen name="ResetPassword" component={WithGuestGuard(ResetPasswordScreen)} />
+            <Stack.Screen name="AuthCallback" component={AuthCallbackScreen} />
           </Stack.Navigator>
         )}
       </NavigationContainer>

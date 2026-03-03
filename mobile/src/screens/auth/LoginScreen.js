@@ -10,10 +10,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Linking,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '../../context/AuthContext';
 import api from '../../config/api';
 import Logo from '../../components/Logo';
+import { API_BASE_URL } from '../../config/api';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LENGTH = 6;
@@ -28,7 +31,32 @@ export default function LoginScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [loginMode, setLoginMode] = useState('password'); // 'password' | 'otp'
   const [otpSent, setOtpSent] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const { signIn } = useContext(AuthContext);
+
+  const getGoogleRedirectUri = () => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const origin = window.location.origin || '';
+      return `${origin.replace(/\/$/, '')}/auth/callback`;
+    }
+    return 'houseofjainz://auth/callback';
+  };
+
+  const handleGoogleSignIn = () => {
+    const base = (API_BASE_URL || '').replace(/\/$/, '');
+    const authBase = base.endsWith('/api') ? base : `${base}/api`;
+    const redirectUri = getGoogleRedirectUri();
+    const url = `${authBase}/auth/google?redirect_uri=${encodeURIComponent(redirectUri)}`;
+    setGoogleLoading(true);
+    if (Platform.OS === 'web') {
+      window.location.href = url;
+    } else {
+      Linking.openURL(url).catch(() => {
+        setGoogleLoading(false);
+        Alert.alert(t('common.error'), 'Could not open sign-in page.');
+      });
+    }
+  };
 
   const validateForm = () => {
     const newErrors = { email: '', password: '' };
@@ -294,6 +322,22 @@ export default function LoginScreen({ navigation }) {
               {t('auth.dontHaveAccount')} {t('auth.register')}
             </Text>
           </TouchableOpacity>
+
+          <View style={styles.dividerWrap}>
+            <View style={styles.divider} />
+            <Text style={styles.dividerText}>Or continue with</Text>
+            <View style={styles.divider} />
+          </View>
+          <TouchableOpacity
+            style={[styles.googleButton, googleLoading && styles.buttonDisabled]}
+            onPress={handleGoogleSignIn}
+            disabled={googleLoading}
+          >
+            <Ionicons name="logo-google" size={22} color="#333" />
+            <Text style={styles.googleButtonText}>
+              {googleLoading ? 'Opening…' : 'Sign in with Google'}
+            </Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -381,6 +425,38 @@ const styles = StyleSheet.create({
     color: '#4CAF50',
     fontSize: 14,
     fontWeight: '600',
+  },
+  dividerWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 24,
+    marginBottom: 16,
+  },
+  divider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#e0e0e0',
+  },
+  dividerText: {
+    marginHorizontal: 12,
+    fontSize: 13,
+    color: '#666',
+  },
+  googleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#dadce0',
+  },
+  googleButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#3c4043',
   },
 });
 

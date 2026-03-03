@@ -2,12 +2,19 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const { OAuth2Client } = require('google-auth-library');
 const supabase = require('../config/supabase');
 const { authenticateToken } = require('../middleware/auth');
 const { body, validationResult } = require('express-validator');
 const { sendPasswordResetEmail, sendOtpEmail } = require('../utils/email');
 
 const router = express.Router();
+
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+const API_BASE = process.env.API_BASE_URL || process.env.BACKEND_URL || 'https://houseofjainz-o8g2v.ondigitalocean.app';
+const API_BASE_PATH = API_BASE.replace(/\/$/, '') + (API_BASE.includes('/api') ? '' : '/api');
+const GOOGLE_CALLBACK_URL = `${API_BASE_PATH}/auth/google/callback`;
 
 // Register
 router.post('/register', [
@@ -327,6 +334,148 @@ router.post('/profile-picture', authenticateToken, async (req, res) => {
     res.json({ user });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// -------- Google Sign-In --------
+function getGoogleOAuthClient() {
+  if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) return null;
+  return new OAuth2Client(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_CALLBACK_URL);
+}
+
+async function findOrCreateGoogleUser(payload) {
+  const { sub: googleId, email, name, picture } = payload;
+  if (!email) return { error: 'Email not provided by Google' };
+  const emailNorm = (email || '').trim().toLowerCase();
+  const displayName = (name || emailNorm.split('@')[0] || 'User').trim().slice(0, 255);
+
+  const { data: byGoogle } = await supabase.from('users').select('id, email, name, religion, phone, role, avatar_url').eq('google_id', googleId).maybeSingle();
+  if (byGoogle) return { user: byGoogle };
+
+  const { data: byEmail } = await supabase.from('users').select('id, email, name, religion, phone, role, avatar_url').eq('email', emailNorm).maybeSingle();
+  if (byEmail) {
+    await supabase.from('users').update({ google_id: googleId, updated_at: new Date().toISOString() }).eq('id', byEmail.id);
+    return { user: { ...byEmail, google_id: googleId } };
+  }
+
+  const { data: newUser, error } = await supabase
+    .from('users')
+    .insert([{
+      email: emailNorm,
+      password: null,
+      name: displayName,
+      religion: 'Jain',
+      google_id: googleId,
+      avatar_url: picture || null,
+    }])
+    .select('id, email, name, religion, phone, role, avatar_url')
+    .single();
+  if (error) return { error: error.message };
+  return { user: newUser };
+}
+
+// GET /auth/google - redirect to Google OAuth. Query: redirect_uri (where to send user with token after login)
+router.get('/google', (req, res) => {
+  const redirectUri = (req.query.redirect_uri || '').trim() || (process.env.FRONTEND_URL || 'houseofjainz://auth/callback');
+  const client = getGoogleOAuthClient();
+  if (!client) {
+    return res.status(503).json({ error: 'Google Sign-In is not configured' });
+  }
+  const state = Buffer.from(redirectUri, 'utf8').toString('base64url');
+  const url = client.generateAuthUrl({
+    access_type: 'offline',
+    scope: ['openid', 'email', 'profile'],
+    state,
+    prompt: 'select_account',
+  });
+  res.redirect(url);
+});
+
+// GET /auth/google/callback - Google redirects here with code; exchange for tokens, create/find user, redirect to app with JWT
+router.get('/google/callback', async (req, res) => {
+  const { code, state, error: oauthError } = req.query;
+  let redirectUri = (process.env.FRONTEND_URL || 'houseofjainz://auth/callback').replace(/\/$/, '');
+  try {
+    if (state) redirectUri = Buffer.from(state, 'base64url').toString('utf8');
+  } catch (_) {}
+  const appendToken = (url, token) => {
+    const sep = url.includes('?') ? '&' : '?';
+    return `${url}${sep}token=${encodeURIComponent(token)}`;
+  };
+
+  if (oauthError) {
+    const errMsg = typeof oauthError === 'string' ? oauthError : 'Access denied';
+    return res.redirect(appendToken(redirectUri, '') + '&error=' + encodeURIComponent(errMsg));
+  }
+  if (!code) {
+    return res.redirect(appendToken(redirectUri, '') + '&error=' + encodeURIComponent('No code from Google'));
+  }
+
+  const client = getGoogleOAuthClient();
+  if (!client) {
+    return res.redirect(appendToken(redirectUri, '') + '&error=' + encodeURIComponent('Google Sign-In not configured'));
+  }
+
+  try {
+    const { tokens } = await client.getToken(code);
+    const idToken = tokens.id_token;
+    if (!idToken) {
+      return res.redirect(appendToken(redirectUri, '') + '&error=' + encodeURIComponent('No ID token'));
+    }
+    const ticket = await client.verifyIdToken({ idToken, audience: GOOGLE_CLIENT_ID });
+    const payload = ticket.getPayload();
+    const result = await findOrCreateGoogleUser(payload);
+    if (result.error) {
+      return res.redirect(appendToken(redirectUri, '') + '&error=' + encodeURIComponent(result.error));
+    }
+    const token = jwt.sign(
+      { userId: result.user.id, email: result.user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+    res.redirect(appendToken(redirectUri, token));
+  } catch (err) {
+    console.error('Google callback error:', err);
+    res.redirect(appendToken(redirectUri, '') + '&error=' + encodeURIComponent(err.message || 'Google sign-in failed'));
+  }
+});
+
+// POST /auth/google - body: { idToken }. For native apps that get ID token from Google SDK. Returns { token, user }.
+router.post('/google', async (req, res) => {
+  const idToken = req.body?.idToken || req.body?.id_token;
+  if (!idToken) {
+    return res.status(400).json({ error: 'idToken is required' });
+  }
+  if (!GOOGLE_CLIENT_ID) {
+    return res.status(503).json({ error: 'Google Sign-In is not configured' });
+  }
+  const client = new OAuth2Client(GOOGLE_CLIENT_ID);
+  try {
+    const ticket = await client.verifyIdToken({ idToken, audience: GOOGLE_CLIENT_ID });
+    const payload = ticket.getPayload();
+    const result = await findOrCreateGoogleUser(payload);
+    if (result.error) {
+      return res.status(400).json({ error: result.error });
+    }
+    const token = jwt.sign(
+      { userId: result.user.id, email: result.user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+    const { data: withRole } = await supabase.from('users').select('role').eq('id', result.user.id).single();
+    const user = {
+      id: result.user.id,
+      email: result.user.email,
+      name: result.user.name,
+      religion: result.user.religion || 'Jain',
+      phone: result.user.phone || null,
+      role: withRole?.role || 'user',
+      avatar_url: result.user.avatar_url || null,
+    };
+    return res.json({ token, user });
+  } catch (err) {
+    console.error('Google verify error:', err);
+    return res.status(401).json({ error: 'Invalid Google token' });
   }
 });
 
