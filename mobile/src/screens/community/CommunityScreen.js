@@ -784,10 +784,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
+    ...Platform.select({ web: { alignItems: 'center' } }),
   },
   modalOverlayInner: {
     flex: 1,
     justifyContent: 'flex-end',
+    ...Platform.select({ web: { alignItems: 'center', width: '100%' } }),
   },
   modalContent: {
     backgroundColor: '#fff',
@@ -802,6 +804,10 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 10,
     flexDirection: 'column',
+    ...Platform.select({
+      web: { width: '100%', maxWidth: 430, alignSelf: 'center' },
+      default: {},
+    }),
   },
   modalHeader: {
     flexDirection: 'row',

@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import api from '../../config/api';
 import { AuthContext } from '../../context/AuthContext';
 import Logo from '../../components/Logo';
+import { confirmAsync } from '../../utils/alert';
 
 export default function AdminDashboardScreen({ navigation }) {
   const { signOut, user } = useContext(AuthContext);
@@ -27,14 +28,7 @@ export default function AdminDashboardScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
 
   const handleLogout = () => {
-    Alert.alert('Logout', 'Are you sure you want to logout?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Logout',
-        style: 'destructive',
-        onPress: signOut,
-      },
-    ]);
+    confirmAsync('Logout', 'Are you sure you want to logout?', signOut, 'Logout', 'Cancel');
   };
 
   useEffect(() => {

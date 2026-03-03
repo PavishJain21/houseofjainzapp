@@ -36,35 +36,37 @@ export default function AddProductScreen({ route, navigation }) {
     
     setPickingImage(true);
     try {
-      // Request permission first
-      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      
-      if (permissionResult.status !== 'granted') {
-        Alert.alert(
-          'Permission needed',
-          'Please grant camera roll permissions to select images',
-          [{ text: 'OK' }]
-        );
-        setPickingImage(false);
-        return;
+      // On web, permissions are handled by the browser file input
+      if (Platform.OS !== 'web') {
+        const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (permissionResult.status !== 'granted') {
+          Alert.alert(
+            'Permission needed',
+            'Please grant camera roll permissions to select images',
+            [{ text: 'OK' }]
+          );
+          setPickingImage(false);
+          return;
+        }
       }
 
       // Small delay to ensure UI is responsive
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      // On Android, get base64 from picker - content:// URIs fail with FormData & FileSystem
+      // On Android and Web: get base64 from picker (content:// / blob: URIs need base64 for upload)
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: false,
         quality: 1,
-        base64: Platform.OS === 'android',
+        base64: Platform.OS === 'android' || Platform.OS === 'web',
       });
 
       if (result && !result.canceled && result.assets && result.assets.length > 0) {
         const selectedImage = result.assets[0];
         if (selectedImage.uri) {
           setImage(selectedImage.uri);
-          setImageBase64(Platform.OS === 'android' && selectedImage.base64 ? selectedImage.base64 : null);
+          const useBase64 = (Platform.OS === 'android' || Platform.OS === 'web') && selectedImage.base64;
+          setImageBase64(useBase64 ? selectedImage.base64 : null);
         }
       }
     } catch (error) {
@@ -106,6 +108,11 @@ export default function AddProductScreen({ route, navigation }) {
   };
 
   const showImageOptions = () => {
+    // On web, only gallery is supported (browser file input)
+    if (Platform.OS === 'web') {
+      pickImageFromGallery();
+      return;
+    }
     Alert.alert(
       'Select Image',
       'Choose an option',
@@ -199,12 +206,12 @@ export default function AddProductScreen({ route, navigation }) {
           if (fileExtension === 'png') mimeType = 'image/png';
           if (fileExtension === 'gif') mimeType = 'image/gif';
 
-          // Android: content:// URIs fail with FormData & FileSystem - use base64 from picker
+          // Android/Web: use base64 from picker (content:// / blob: URIs don't work with FormData)
           // iOS: try FormData first, fallback to FileSystem base64
           let uploadSuccess = false;
           let base64Data = imageBase64;
 
-          if (Platform.OS === 'android' && base64Data) {
+          if ((Platform.OS === 'android' || Platform.OS === 'web') && base64Data) {
             try {
               console.log('Android - Using base64 from picker (avoids content:// URI issues)');
               const uploadResponse = await api.post('/seller/upload-image', {

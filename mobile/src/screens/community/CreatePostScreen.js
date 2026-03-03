@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
-import { getLocationWithFallback } from '../../utils/location';
+import { getLocationWithFallback, getLocationNameFromCoords } from '../../utils/location';
 import * as FileSystem from 'expo-file-system';
 import { Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,62 +22,63 @@ export default function CreatePostScreen({ navigation }) {
   const [image, setImage] = useState(null);
   const [imageBase64, setImageBase64] = useState(null); // Android: base64 from picker (content:// URIs can't be read)
   const [location, setLocation] = useState(null);
+  const [locationLoading, setLocationLoading] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const pickImage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Please grant camera roll permissions');
-      return;
+    // On web, permissions are handled by the browser file input
+    if (Platform.OS !== 'web') {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Please grant camera roll permissions');
+        return;
+      }
     }
 
-    // On Android, get base64 from picker - content:// URIs fail with FormData & FileSystem.readAsStringAsync
+    // On Android/Web: get base64 from picker (content:// / blob: URIs need base64 for upload)
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [4, 3],
       quality: 0.8,
-      base64: Platform.OS === 'android',
+      base64: Platform.OS === 'android' || Platform.OS === 'web',
     });
 
-    if (!result.canceled) {
+    if (!result.canceled && result.assets && result.assets.length > 0) {
       const asset = result.assets[0];
       setImage(asset.uri);
-      setImageBase64(Platform.OS === 'android' && asset.base64 ? asset.base64 : null);
+      const useBase64 = (Platform.OS === 'android' || Platform.OS === 'web') && asset.base64;
+      setImageBase64(useBase64 ? asset.base64 : null);
     }
   };
 
   const getLocation = async () => {
+    setLocationLoading(true);
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission needed', 'Please grant location permissions');
-        return;
+      if (Platform.OS !== 'web') {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission needed', 'Please grant location permissions');
+          setLocationLoading(false);
+          return;
+        }
       }
 
       const locationData = await getLocationWithFallback({});
       const { latitude, longitude } = locationData.coords;
-      
-      // Reverse geocode to get city name
-      const reverseGeocode = await Location.reverseGeocodeAsync({
-        latitude,
-        longitude,
-      });
 
-      if (reverseGeocode && reverseGeocode.length > 0) {
-        const address = reverseGeocode[0];
-        // Try to get city, if not available use district or subregion
-        const cityName = address.city || address.district || address.subregion || address.region || 'Unknown Location';
-        setLocation(cityName);
-      } else {
-        Alert.alert('Error', 'Could not determine location');
-      }
+      const cityName = await getLocationNameFromCoords(latitude, longitude);
+      setLocation(
+        cityName || `Location (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`
+      );
     } catch (error) {
       console.error('Location error:', error);
       const msg = error?.message === 'LOCATION_SERVICES_DISABLED'
-        ? 'Please enable Location Services in your device settings.'
+        ? 'Please allow location access in your browser or device settings.'
         : 'Failed to get location. Please try again.';
       Alert.alert('Error', msg);
+    } finally {
+      setLocationLoading(false);
     }
   };
 
@@ -117,12 +118,12 @@ export default function CreatePostScreen({ navigation }) {
 
           console.log('File extension:', fileExtension, 'MIME type:', mimeType);
 
-          // Android: content:// URIs fail with FormData & FileSystem - use base64 from picker
+          // Android/Web: use base64 from picker (content:// / blob: URIs don't work with FormData)
           // iOS: try FormData first, fallback to FileSystem.readAsStringAsync base64
           let uploadSuccess = false;
-          let base64Data = imageBase64; // Android: from picker
+          let base64Data = imageBase64;
 
-          if (Platform.OS === 'android' && base64Data) {
+          if ((Platform.OS === 'android' || Platform.OS === 'web') && base64Data) {
             try {
               console.log('Android - Using base64 from picker (avoids content:// URI issues)');
               const uploadResponse = await api.post('/community/upload-image', {
@@ -258,18 +259,36 @@ export default function CreatePostScreen({ navigation }) {
         />
 
         <View style={styles.actions}>
-          <TouchableOpacity style={styles.actionButton} onPress={pickImage}>
+          <TouchableOpacity style={styles.actionButton} onPress={pickImage} disabled={loading}>
             <Ionicons name="image" size={24} color="#4CAF50" />
             <Text style={styles.actionText}>{image ? 'Change Photo' : 'Add Photo'}</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.actionButton} onPress={getLocation}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={getLocation}
+            disabled={loading || locationLoading}
+          >
             <Ionicons name="location" size={24} color="#4CAF50" />
             <Text style={styles.actionText}>
-              {location ? 'Location Added' : 'Add Location'}
+              {locationLoading ? 'Getting location...' : location ? 'Change Location' : 'Add Location'}
             </Text>
           </TouchableOpacity>
         </View>
+
+        {location ? (
+          <View style={styles.locationTag}>
+            <Ionicons name="location" size={18} color="#4CAF50" />
+            <Text style={styles.locationTagText} numberOfLines={1}>{location}</Text>
+            <TouchableOpacity
+              onPress={() => setLocation(null)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={styles.locationTagRemove}
+            >
+              <Ionicons name="close-circle" size={20} color="#666" />
+            </TouchableOpacity>
+          </View>
+        ) : null}
 
         <TouchableOpacity
           style={[styles.postButton, loading && styles.buttonDisabled]}
@@ -357,6 +376,29 @@ const styles = StyleSheet.create({
     color: '#4CAF50',
     fontWeight: '600',
     fontSize: 15,
+  },
+  locationTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: '#e8f5e9',
+    paddingVertical: 10,
+    paddingLeft: 14,
+    paddingRight: 8,
+    borderRadius: 12,
+    marginBottom: 20,
+    maxWidth: '100%',
+  },
+  locationTagText: {
+    marginLeft: 8,
+    marginRight: 6,
+    fontSize: 14,
+    color: '#2e7d32',
+    fontWeight: '500',
+    flex: 1,
+  },
+  locationTagRemove: {
+    padding: 4,
   },
   postButton: {
     backgroundColor: '#4CAF50',

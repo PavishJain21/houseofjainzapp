@@ -564,6 +564,7 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     justifyContent: 'flex-end',
+    ...Platform.select({ web: { alignItems: 'center' } }),
   },
   modalBackdrop: {
     ...StyleSheet.absoluteFillObject,
@@ -576,6 +577,10 @@ const styles = StyleSheet.create({
     padding: 20,
     maxHeight: '90%',
     minHeight: '50%',
+    ...Platform.select({
+      web: { width: '100%', maxWidth: 430, alignSelf: 'center' },
+      default: {},
+    }),
   },
   modalHeader: {
     flexDirection: 'row',

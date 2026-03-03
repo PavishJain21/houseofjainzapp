@@ -1,7 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, Platform } from 'react-native';
-import { BannerAd, BannerAdSize, TestIds } from 'react-native-google-mobile-ads';
 import { getAdUnitId } from '../../config/admob';
+
+// Native ads not supported on web; only require on native
+let BannerAd, BannerAdSize, TestIds;
+if (Platform.OS !== 'web') {
+  const Ads = require('react-native-google-mobile-ads');
+  BannerAd = Ads.BannerAd;
+  BannerAdSize = Ads.BannerAdSize;
+  TestIds = Ads.TestIds;
+}
 
 export default function BannerAdComponent({ 
   adUnitId = null, 
@@ -16,7 +24,7 @@ export default function BannerAdComponent({
     setAdUnit(unitId);
   }, [adUnitId]);
 
-  if (!adUnit) {
+  if (!adUnit || Platform.OS === 'web') {
     return null;
   }
 

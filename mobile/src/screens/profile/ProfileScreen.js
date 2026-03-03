@@ -16,6 +16,7 @@ import useFeatures from '../../context/FeatureContext';
 import api from '../../config/api';
 import AppBanner from '../../components/AppBanner';
 import Logo from '../../components/Logo';
+import { confirmAsync } from '../../utils/alert';
 
 export default function ProfileScreen({ navigation }) {
   const { user, signOut } = useContext(AuthContext);
@@ -45,14 +46,13 @@ export default function ProfileScreen({ navigation }) {
   };
 
   const handleLogout = () => {
-    Alert.alert(t('auth.logout'), t('auth.logoutConfirm'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('auth.logout'),
-        style: 'destructive',
-        onPress: signOut,
-      },
-    ]);
+    confirmAsync(
+      t('auth.logout'),
+      t('auth.logoutConfirm'),
+      signOut,
+      t('auth.logout'),
+      t('common.cancel')
+    );
   };
 
   const menuItems = [
@@ -86,11 +86,8 @@ export default function ProfileScreen({ navigation }) {
       icon: 'storefront-outline',
       onPress: () => navigation.navigate('SellerDashboard'),
     }] : []),
-    {
-      title: t('profile.appearance'),
-      icon: 'moon-outline',
-      onPress: () => setThemeModalVisible(true),
-    },
+    // Appearance hidden for now
+    // { title: t('profile.appearance'), icon: 'moon-outline', onPress: () => setThemeModalVisible(true) },
     {
       title: t('profile.language'),
       icon: 'language-outline',

@@ -1,40 +1,42 @@
 import React, { useEffect } from 'react';
-import { RewardedAd, RewardedAdEventType, TestIds } from 'react-native-google-mobile-ads';
+import { Platform } from 'react-native';
 import { getAdUnitId } from '../../config/admob';
 
+const isWeb = Platform.OS === 'web';
 let rewardedAd = null;
 
+if (!isWeb) {
+  var { RewardedAd, RewardedAdEventType, TestIds } = require('react-native-google-mobile-ads');
+}
+
 export const loadRewardedAd = (adUnitId = null) => {
+  if (isWeb) return null;
   const unitId = adUnitId || getAdUnitId('REWARDED');
-  
+  if (!unitId) return null;
   rewardedAd = RewardedAd.createForAdRequest(unitId, {
     requestNonPersonalizedAdsOnly: true,
   });
-
   return rewardedAd;
 };
 
 export const showRewardedAd = async (adUnitId = null, onRewarded = () => {}) => {
+  if (isWeb) {
+    onRewarded({ amount: 0, type: 'web' });
+    return;
+  }
   try {
     if (!rewardedAd) {
       rewardedAd = loadRewardedAd(adUnitId);
     }
-
-    // Load the ad
+    if (!rewardedAd) return;
     await rewardedAd.load();
-
-    // Handle rewards
     rewardedAd.addAdEventListener(RewardedAdEventType.EARNED_REWARD, (reward) => {
       console.log('User earned reward:', reward);
       onRewarded(reward);
     });
-
-    // Show the ad when loaded
     rewardedAd.addAdEventListener(RewardedAdEventType.LOADED, () => {
       rewardedAd.show();
     });
-
-    // Reload for next time
     rewardedAd.addAdEventListener(RewardedAdEventType.CLOSED, () => {
       rewardedAd = loadRewardedAd(adUnitId);
     });

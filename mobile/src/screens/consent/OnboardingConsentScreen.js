@@ -12,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import ConsentContext from '../../context/ConsentContext';
 import { AuthContext } from '../../context/AuthContext';
+import { confirmAsync } from '../../utils/alert';
 
 export default function OnboardingConsentScreen({ navigation }) {
   const consentContext = useContext(ConsentContext);
@@ -291,14 +292,7 @@ export default function OnboardingConsentScreen({ navigation }) {
   };
 
   const handleLogout = () => {
-    Alert.alert('Logout', 'Are you sure you want to logout?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Logout',
-        style: 'destructive',
-        onPress: signOut,
-      },
-    ]);
+    confirmAsync('Logout', 'Are you sure you want to logout?', signOut, 'Logout', 'Cancel');
   };
 
   if (loading) {

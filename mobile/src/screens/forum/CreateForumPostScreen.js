@@ -13,43 +13,42 @@ import {
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../config/api';
-import { getLocationWithFallback } from '../../utils/location';
+import { getLocationWithFallback, getLocationNameFromCoords } from '../../utils/location';
 
 export default function CreateForumPostScreen({ route, navigation }) {
   const { categorySlug, categoryLabel } = route.params || {};
   const [content, setContent] = useState('');
   const [location, setLocation] = useState(null);
+  const [locationLoading, setLocationLoading] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const getLocation = async () => {
+    setLocationLoading(true);
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission needed', 'Please grant location permissions');
-        return;
+      if (Platform.OS !== 'web') {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission needed', 'Please grant location permissions');
+          setLocationLoading(false);
+          return;
+        }
       }
 
       const locationData = await getLocationWithFallback({});
       const { latitude, longitude } = locationData.coords;
 
-      const reverseGeocode = await Location.reverseGeocodeAsync({
-        latitude,
-        longitude,
-      });
-
-      if (reverseGeocode && reverseGeocode.length > 0) {
-        const address = reverseGeocode[0];
-        const cityName = address.city || address.district || address.subregion || address.region || 'Unknown Location';
-        setLocation(cityName);
-      } else {
-        Alert.alert('Error', 'Could not determine location');
-      }
+      const cityName = await getLocationNameFromCoords(latitude, longitude);
+      setLocation(
+        cityName || `Location (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`
+      );
     } catch (error) {
       console.error('Location error:', error);
       const msg = error?.message === 'LOCATION_SERVICES_DISABLED'
-        ? 'Please enable Location Services in your device settings.'
+        ? 'Please allow location access in your browser or device settings.'
         : 'Failed to get location. Please try again.';
       Alert.alert('Error', msg);
+    } finally {
+      setLocationLoading(false);
     }
   };
 
@@ -109,11 +108,11 @@ export default function CreateForumPostScreen({ route, navigation }) {
           <TouchableOpacity
             style={styles.locationButton}
             onPress={getLocation}
-            disabled={loading}
+            disabled={loading || locationLoading}
           >
             <Ionicons name="location" size={22} color="#4CAF50" />
             <Text style={styles.locationButtonText}>
-              {location ? 'Location Added' : 'Add Location'}
+              {locationLoading ? 'Getting location...' : location ? 'Change Location' : 'Add Location'}
             </Text>
           </TouchableOpacity>
           {location ? (

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, Platform, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -46,6 +46,7 @@ import { LanguageProvider } from './src/context/LanguageContext';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { ConsentProvider, ConsentContext } from './src/context/ConsentContext';
 import { FeatureProvider, useFeatures } from './src/context/FeatureContext';
+import { AuthGuard, GuestGuard, ConsentGuard, AdminGuard, FeatureGuard } from './src/navigation/guards';
 import { API_BASE_URL } from './src/config/api';
 import api from './src/config/api';
 
@@ -59,81 +60,109 @@ import CookieConsent from './src/components/CookieConsent';
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
+function WithGuestGuard(Component) {
+  return function Wrapped(props) {
+    return (
+      <GuestGuard>
+        <Component {...props} />
+      </GuestGuard>
+    );
+  };
+}
+
+function WithConsentGuard(Component) {
+  return function Wrapped(props) {
+    return (
+      <ConsentGuard>
+        <Component {...props} />
+      </ConsentGuard>
+    );
+  };
+}
+
 function CommunityStack() {
   return (
-    <Stack.Navigator>
-      <Stack.Screen 
-        name="CommunityFeed" 
-        component={CommunityScreen}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen 
-        name="CreatePost" 
-        component={CreatePostScreen}
-        options={{ title: 'Create Post' }}
-      />
-    </Stack.Navigator>
+    <FeatureGuard featureId="community" fallback={null}>
+      <Stack.Navigator>
+        <Stack.Screen 
+          name="CommunityFeed" 
+          component={CommunityScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen 
+          name="CreatePost" 
+          component={CreatePostScreen}
+          options={{ title: 'Create Post' }}
+        />
+      </Stack.Navigator>
+    </FeatureGuard>
   );
 }
 
 function ForumStack() {
   return (
-    <Stack.Navigator>
-      <Stack.Screen 
-        name="ForumLanding" 
-        component={ForumLandingScreen}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen 
-        name="ForumCategoryFeed" 
-        component={CategoryFeedScreen}
-        options={({ route }) => ({ title: route.params?.categoryLabel || 'Forum' })}
-      />
-      <Stack.Screen 
-        name="CreateForumPost" 
-        component={CreateForumPostScreen}
-        options={({ route }) => ({ title: route.params?.categoryLabel ? `Post in ${route.params.categoryLabel}` : 'Create Post' })}
-      />
-    </Stack.Navigator>
+    <FeatureGuard featureId="forum" fallback={null}>
+      <Stack.Navigator>
+        <Stack.Screen 
+          name="ForumLanding" 
+          component={ForumLandingScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen 
+          name="ForumCategoryFeed" 
+          component={CategoryFeedScreen}
+          options={({ route }) => ({ title: route.params?.categoryLabel || 'Forum' })}
+        />
+        <Stack.Screen 
+          name="CreateForumPost" 
+          component={CreateForumPostScreen}
+          options={({ route }) => ({ title: route.params?.categoryLabel ? `Post in ${route.params.categoryLabel}` : 'Create Post' })}
+        />
+      </Stack.Navigator>
+    </FeatureGuard>
   );
 }
 
 function MarketplaceStack() {
   return (
-    <Stack.Navigator>
-      <Stack.Screen 
-        name="Marketplace" 
-        component={MarketplaceScreen}
-        options={{ title: 'Marketplace' }}
-      />
-      <Stack.Screen 
-        name="Shop" 
-        component={ShopScreen}
-        options={{ title: 'Shop' }}
-      />
-      <Stack.Screen 
-        name="Product" 
-        component={ProductScreen}
-        options={{ title: 'Product Details' }}
-      />
-    </Stack.Navigator>
+    <FeatureGuard featureId="marketplace" fallback={null}>
+      <Stack.Navigator>
+        <Stack.Screen 
+          name="Marketplace" 
+          component={MarketplaceScreen}
+          options={{ title: 'Marketplace' }}
+        />
+        <Stack.Screen 
+          name="Shop" 
+          component={ShopScreen}
+          options={{ title: 'Shop' }}
+        />
+        <Stack.Screen 
+          name="Product" 
+          component={ProductScreen}
+          options={{ title: 'Product Details' }}
+        />
+      </Stack.Navigator>
+    </FeatureGuard>
   );
 }
 
 function CartStack() {
   return (
-    <Stack.Navigator>
-      <Stack.Screen 
-        name="Cart" 
-        component={CartScreen}
-        options={{ title: 'Shopping Cart' }}
-      />
-      <Stack.Screen 
-        name="Checkout" 
-        component={CheckoutScreen}
-        options={{ title: 'Checkout' }}
-      />
-    </Stack.Navigator>
+    <FeatureGuard featureId="cart" fallback={null}>
+      <Stack.Navigator>
+        <Stack.Screen 
+          name="Cart" 
+          component={CartScreen}
+          options={{ title: 'Shopping Cart' }}
+        />
+        <Stack.Screen 
+          name="Checkout" 
+          component={CheckoutScreen}
+          options={{ title: 'Checkout' }}
+        />
+      </Stack.Navigator>
+    </FeatureGuard>
   );
 }
 
@@ -323,6 +352,7 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [userToken, setUserToken] = useState(null);
   const [user, setUser] = useState(null);
+  const [forceMainTabs, setForceMainTabs] = useState(false);
 
   useEffect(() => {
     checkToken();
@@ -378,6 +408,7 @@ export default function App() {
         await AsyncStorage.removeItem('userData');
         setUserToken(null);
         setUser(null);
+        setForceMainTabs(false);
       } catch (error) {
         console.error('Error signing out:', error);
       }
@@ -387,7 +418,16 @@ export default function App() {
   };
 
   if (isLoading) {
-    return null; // You can add a loading screen here
+    if (Platform.OS === 'web') {
+      return (
+        <View style={styles.webRoot}>
+          <View style={[styles.webMobileFrame, styles.loadingCenter]}>
+            <ActivityIndicator size="large" color="#4CAF50" />
+          </View>
+        </View>
+      );
+    }
+    return null;
   }
 
   // Check if user is superadmin or admin
@@ -402,7 +442,7 @@ export default function App() {
     console.log('========================');
   }
 
-  return (
+  const appContent = (
     <LanguageProvider>
       <ThemeProvider>
         <AuthContext.Provider value={authContext}>
@@ -411,6 +451,8 @@ export default function App() {
               <ConsentNavigator 
                 userToken={userToken} 
                 isSuperAdmin={isSuperAdmin}
+                onForceMainTabsChange={setForceMainTabs}
+                forceMainTabs={forceMainTabs}
               />
             </ConsentProvider>
           </FeatureProvider>
@@ -418,15 +460,54 @@ export default function App() {
       </ThemeProvider>
     </LanguageProvider>
   );
+
+  // On web: always show app in mobile viewport (fixed width, centered)
+  if (Platform.OS === 'web') {
+    return (
+      <View style={styles.webRoot}>
+        <View style={styles.webMobileFrame}>
+          {appContent}
+        </View>
+      </View>
+    );
+  }
+
+  return appContent;
 }
 
+const MOBILE_VIEW_WIDTH = 430;
+
+const styles = StyleSheet.create({
+  webRoot: {
+    flex: 1,
+    minHeight: '100vh',
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#1a1a1a',
+  },
+  webMobileFrame: {
+    flex: 1,
+    width: '100%',
+    maxWidth: MOBILE_VIEW_WIDTH,
+    minHeight: '100vh',
+    backgroundColor: '#000',
+    overflow: 'hidden',
+  },
+  loadingCenter: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+});
+
 // Separate component to handle consent checking
-function ConsentNavigator({ userToken, isSuperAdmin }) {
+function ConsentNavigator({ userToken, isSuperAdmin, onForceMainTabsChange, forceMainTabs }) {
   const consentContext = useContext(ConsentContext);
   const { isEnabled } = useFeatures();
   const { theme } = useTheme();
   const [showCookieConsent, setShowCookieConsent] = useState(false);
   const adminEnabled = isEnabled('admin');
+  const showAdminStack = isSuperAdmin && adminEnabled && !forceMainTabs;
   const navTheme = {
     dark: theme.mode === 'dark',
     colors: {
@@ -499,23 +580,29 @@ function ConsentNavigator({ userToken, isSuperAdmin }) {
       >
         {userToken ? (
           contextNeedsConsent ? (
-            <Stack.Navigator screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="OnboardingConsent" component={OnboardingConsentScreen} />
-              <Stack.Screen name="Terms" component={TermsScreen} />
-              <Stack.Screen name="Privacy" component={PrivacyScreen} />
-              <Stack.Screen name="CookiePolicy" component={CookiePolicyScreen} />
-            </Stack.Navigator>
-          ) : isSuperAdmin && adminEnabled ? (
-            <AdminStack />
+            <ConsentGuard>
+              <Stack.Navigator screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="OnboardingConsent" component={WithConsentGuard(OnboardingConsentScreen)} />
+                <Stack.Screen name="Terms" component={WithConsentGuard(TermsScreen)} />
+                <Stack.Screen name="Privacy" component={WithConsentGuard(PrivacyScreen)} />
+                <Stack.Screen name="CookiePolicy" component={WithConsentGuard(CookiePolicyScreen)} />
+              </Stack.Navigator>
+            </ConsentGuard>
+          ) : showAdminStack ? (
+            <AdminGuard onNotAdmin={() => onForceMainTabsChange?.(true)}>
+              <AdminStack />
+            </AdminGuard>
           ) : (
-            <MainTabs />
+            <AuthGuard>
+              <MainTabs />
+            </AuthGuard>
           )
         ) : (
           <Stack.Navigator screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="Login" component={LoginScreen} />
-            <Stack.Screen name="Register" component={RegisterScreen} />
-            <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
-            <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
+            <Stack.Screen name="Login" component={WithGuestGuard(LoginScreen)} />
+            <Stack.Screen name="Register" component={WithGuestGuard(RegisterScreen)} />
+            <Stack.Screen name="ForgotPassword" component={WithGuestGuard(ForgotPasswordScreen)} />
+            <Stack.Screen name="ResetPassword" component={WithGuestGuard(ResetPasswordScreen)} />
           </Stack.Navigator>
         )}
       </NavigationContainer>

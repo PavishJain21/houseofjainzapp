@@ -1,34 +1,35 @@
 import React, { useEffect } from 'react';
-import { InterstitialAd, AdEventType, TestIds } from 'react-native-google-mobile-ads';
+import { Platform } from 'react-native';
 import { getAdUnitId } from '../../config/admob';
 
+const isWeb = Platform.OS === 'web';
 let interstitialAd = null;
 
+if (!isWeb) {
+  var { InterstitialAd, AdEventType, TestIds } = require('react-native-google-mobile-ads');
+}
+
 export const loadInterstitialAd = (adUnitId = null) => {
+  if (isWeb) return null;
   const unitId = adUnitId || getAdUnitId('INTERSTITIAL');
-  
+  if (!unitId) return null;
   interstitialAd = InterstitialAd.createForAdRequest(unitId, {
     requestNonPersonalizedAdsOnly: true,
   });
-
   return interstitialAd;
 };
 
 export const showInterstitialAd = async (adUnitId = null) => {
+  if (isWeb) return;
   try {
     if (!interstitialAd) {
       interstitialAd = loadInterstitialAd(adUnitId);
     }
-
-    // Load the ad
+    if (!interstitialAd) return;
     await interstitialAd.load();
-
-    // Show the ad when loaded
     interstitialAd.addAdEventListener(AdEventType.LOADED, () => {
       interstitialAd.show();
     });
-
-    // Reload for next time
     interstitialAd.addAdEventListener(AdEventType.CLOSED, () => {
       interstitialAd = loadInterstitialAd(adUnitId);
     });

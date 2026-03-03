@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import ConsentContext from '../../context/ConsentContext';
 import { AuthContext } from '../../context/AuthContext';
 import api from '../../config/api';
+import { confirmAsync } from '../../utils/alert';
 
 export default function TermsScreen({ navigation, route }) {
   const { grantConsent, getConsentDocument, consents, hasConsented } = useContext(ConsentContext);
@@ -23,14 +24,7 @@ export default function TermsScreen({ navigation, route }) {
   const [alreadyAccepted, setAlreadyAccepted] = useState(false);
 
   const handleLogout = () => {
-    Alert.alert('Logout', 'Are you sure you want to logout?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Logout',
-        style: 'destructive',
-        onPress: signOut,
-      },
-    ]);
+    confirmAsync('Logout', 'Are you sure you want to logout?', signOut, 'Logout', 'Cancel');
   };
 
   useEffect(() => {

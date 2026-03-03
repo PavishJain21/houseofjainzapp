@@ -11,6 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import ConsentContext from '../../context/ConsentContext';
 import { AuthContext } from '../../context/AuthContext';
+import { confirmAsync } from '../../utils/alert';
 
 export default function CookiePolicyScreen({ navigation, route }) {
   const { grantConsent, getConsentDocument, consents, hasConsented } = useContext(ConsentContext);
@@ -22,14 +23,7 @@ export default function CookiePolicyScreen({ navigation, route }) {
   const [alreadyAccepted, setAlreadyAccepted] = useState(false);
 
   const handleLogout = () => {
-    Alert.alert('Logout', 'Are you sure you want to logout?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Logout',
-        style: 'destructive',
-        onPress: signOut,
-      },
-    ]);
+    confirmAsync('Logout', 'Are you sure you want to logout?', signOut, 'Logout', 'Cancel');
   };
 
   useEffect(() => {

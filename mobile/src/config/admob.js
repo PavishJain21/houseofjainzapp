@@ -1,14 +1,16 @@
-import mobileAds from 'react-native-google-mobile-ads';
+import { Platform } from 'react-native';
 
-// Initialize AdMob
+const isWeb = Platform.OS === 'web';
+
+// Initialize AdMob (no-op on web; react-native-google-mobile-ads is native-only)
 let isInitialized = false;
 
 export const initializeAdMob = async () => {
-  if (isInitialized) {
-    return;
-  }
+  if (isWeb) return;
+  if (isInitialized) return;
 
   try {
+    const mobileAds = require('react-native-google-mobile-ads').default;
     await mobileAds().initialize();
     isInitialized = true;
     console.log('AdMob initialized successfully');
@@ -37,13 +39,13 @@ export const AD_UNITS = {
   // REWARDED_IOS: 'ca-app-pub-XXXXXXXXXXXXXXXX/XXXXXXXXXX',
 };
 
-// Get platform-specific ad unit ID
+// Get platform-specific ad unit ID (null on web so ad components render nothing)
 export const getAdUnitId = (adType) => {
-  const { Platform } = require('react-native');
+  if (isWeb) return null;
   const platform = Platform.OS === 'ios' ? 'IOS' : 'ANDROID';
   return AD_UNITS[`${adType}_${platform}`] || AD_UNITS[`${adType}_ANDROID`];
 };
 
-export default mobileAds;
+export default isWeb ? { initialize: async () => {} } : require('react-native-google-mobile-ads').default;
 
 
