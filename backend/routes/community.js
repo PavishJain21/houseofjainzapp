@@ -445,27 +445,31 @@ router.get('/posts/:postId/comments', authenticateToken, async (req, res) => {
   }
 });
 
-// Get user's own posts
+// Get user's own posts (paginated)
 router.get('/posts/my-posts', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
+    const { page = 1, limit = 10 } = req.query;
+    const pageNum = Math.max(1, parseInt(page, 10));
+    const limitNum = Math.min(20, Math.max(5, parseInt(limit, 10)));
+    const offset = (pageNum - 1) * limitNum;
 
-    const { data: posts, error } = await supabase
+    const { data: posts, error, count } = await supabase
       .from('posts')
       .select(`
         *,
         user:users(id, name, email)
-      `)
+      `, { count: 'exact' })
       .eq('user_id', userId)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limitNum - 1);
 
     if (error) {
       return res.status(400).json({ error: error.message });
     }
 
-    // Get likes and comments count for each post
     const postsWithStats = await Promise.all(
-      posts.map(async (post) => {
+      (posts || []).map(async (post) => {
         const { count: likesCount } = await supabase
           .from('likes')
           .select('*', { count: 'exact', head: true })
@@ -484,7 +488,20 @@ router.get('/posts/my-posts', authenticateToken, async (req, res) => {
       })
     );
 
-    res.json({ posts: postsWithStats });
+    const total = count ?? 0;
+    const totalPages = Math.ceil(total / limitNum);
+    const hasMore = pageNum < totalPages;
+
+    res.json({
+      posts: postsWithStats,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages,
+        hasMore,
+      },
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
