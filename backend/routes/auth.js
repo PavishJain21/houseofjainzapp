@@ -298,7 +298,22 @@ router.get('/me', authenticateToken, async (req, res) => {
 // Upload profile picture (base64). Updates user.avatar_url.
 // GET returns 405 so the URL is reachable (browser visits use GET).
 router.get('/profile-picture', authenticateToken, (req, res) => {
-  res.status(405).json({ error: 'Method not allowed. Use POST with body { imageBase64, mimeType? } to upload.' });
+  res.status(405).json({ error: 'Method not allowed. Use POST with body { imageBase64, mimeType? } to upload, or DELETE to remove.' });
+});
+router.delete('/profile-picture', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { data: user, error } = await supabase
+      .from('users')
+      .update({ avatar_url: null, updated_at: new Date().toISOString() })
+      .eq('id', userId)
+      .select('id, email, name, religion, phone, role, avatar_url, created_at')
+      .single();
+    if (error) return res.status(400).json({ error: error.message });
+    res.json({ user });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 router.post('/profile-picture', authenticateToken, async (req, res) => {
   try {

@@ -332,6 +332,26 @@ export default function CategoryFeedScreen({ route, navigation }) {
 
   return (
     <View style={styles.container}>
+      <View style={styles.filterRow}>
+        <TouchableOpacity
+          style={[styles.filterChip, !locationFilter && styles.filterChipActive]}
+          onPress={handleFilterAll}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="globe-outline" size={18} color={!locationFilter ? '#fff' : '#333'} />
+          <Text style={[styles.filterChipText, !locationFilter && styles.filterChipTextActive]}>All</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.filterChip, locationFilter && styles.filterChipActive]}
+          onPress={handleFilterNearby}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="location-outline" size={18} color={locationFilter ? '#fff' : '#333'} />
+          <Text style={[styles.filterChipText, locationFilter && styles.filterChipTextActive]} numberOfLines={1}>
+            {locationFilter ? (locationFilter.length > 12 ? `${locationFilter.slice(0, 10)}…` : locationFilter) : 'Nearby'}
+          </Text>
+        </TouchableOpacity>
+      </View>
       <FlatList
         data={posts}
         renderItem={renderPost}
@@ -342,26 +362,6 @@ export default function CategoryFeedScreen({ route, navigation }) {
         onEndReached={loadMore}
         onEndReachedThreshold={0.5}
         contentContainerStyle={styles.list}
-        ListHeaderComponent={
-          <View style={styles.filterRow}>
-            <TouchableOpacity
-              style={[styles.filterChip, !locationFilter && styles.filterChipActive]}
-              onPress={handleFilterAll}
-            >
-              <Ionicons name="globe-outline" size={18} color={!locationFilter ? '#fff' : '#333'} />
-              <Text style={[styles.filterChipText, !locationFilter && styles.filterChipTextActive]}>All</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.filterChip, locationFilter && styles.filterChipActive]}
-              onPress={handleFilterNearby}
-            >
-              <Ionicons name="location-outline" size={18} color={locationFilter ? '#fff' : '#333'} />
-              <Text style={[styles.filterChipText, locationFilter && styles.filterChipTextActive]} numberOfLines={1}>
-                {locationFilter ? (locationFilter.length > 12 ? `${locationFilter.slice(0, 10)}…` : locationFilter) : 'Nearby'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        }
         ListEmptyComponent={
           <View style={styles.empty}>
             <Ionicons name="chatbubbles-outline" size={56} color="#ccc" />

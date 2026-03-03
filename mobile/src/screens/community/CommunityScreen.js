@@ -29,7 +29,7 @@ import { useTheme } from '../../context/ThemeContext';
 import AppBanner from '../../components/AppBanner';
 import Logo from '../../components/Logo';
 
-export default function CommunityScreen({ navigation }) {
+export default function CommunityScreen({ navigation, route }) {
   const { user } = useContext(AuthContext);
   const { t } = useContext(LanguageContext);
   const { theme } = useTheme();
@@ -55,6 +55,18 @@ export default function CommunityScreen({ navigation }) {
     };
     initialize();
   }, []);
+
+  // Prepend newly created post when returning from CreatePost (no full refetch)
+  useEffect(() => {
+    const newPost = route.params?.newPost;
+    if (newPost && newPost.id) {
+      setPosts((prev) => {
+        if (prev.some((p) => p.id === newPost.id)) return prev;
+        return [newPost, ...prev];
+      });
+      navigation.setParams({ newPost: undefined });
+    }
+  }, [route.params?.newPost]);
 
   const getUserLocation = async () => {
     try {
@@ -440,6 +452,35 @@ export default function CommunityScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
+      <View style={[styles.filterRow, { backgroundColor: theme.colors.surface || '#fff', borderBottomColor: theme.colors.border || '#eee' }]}>
+        <TouchableOpacity
+          style={[
+            styles.filterChip,
+            { backgroundColor: !locationFilter ? (theme.colors.primary || '#4CAF50') : (theme.colors.background || '#f0f2f5'), borderColor: theme.colors.border || '#ddd' },
+          ]}
+          onPress={handleFilterAll}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="globe-outline" size={18} color={!locationFilter ? '#fff' : (theme.colors.text || '#333')} />
+          <Text style={[styles.filterChipText, { color: !locationFilter ? '#fff' : (theme.colors.text || '#333') }]}>
+            All
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.filterChip,
+            { backgroundColor: locationFilter ? (theme.colors.primary || '#4CAF50') : (theme.colors.background || '#f0f2f5'), borderColor: theme.colors.border || '#ddd' },
+          ]}
+          onPress={handleFilterNearby}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="location-outline" size={18} color={locationFilter ? '#fff' : (theme.colors.text || '#333')} />
+          <Text style={[styles.filterChipText, { color: locationFilter ? '#fff' : (theme.colors.text || '#333') }]} numberOfLines={1}>
+            {locationFilter ? (locationFilter.length > 12 ? `${locationFilter.slice(0, 10)}…` : locationFilter) : 'Nearby'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       <FlatList
         data={posts}
         renderItem={renderPost}
@@ -452,39 +493,11 @@ export default function CommunityScreen({ navigation }) {
         scrollEventThrottle={400}
         contentContainerStyle={styles.list}
         ListHeaderComponent={
-          <>
-            <View style={[styles.filterRow, { backgroundColor: theme.colors.surface || '#fff', borderBottomColor: theme.colors.border || '#eee' }]}>
-              <TouchableOpacity
-                style={[
-                  styles.filterChip,
-                  { backgroundColor: !locationFilter ? (theme.colors.primary || '#4CAF50') : (theme.colors.background || '#f0f2f5'), borderColor: theme.colors.border || '#ddd' },
-                ]}
-                onPress={handleFilterAll}
-              >
-                <Ionicons name="globe-outline" size={18} color={!locationFilter ? '#fff' : (theme.colors.text || '#333')} />
-                <Text style={[styles.filterChipText, { color: !locationFilter ? '#fff' : (theme.colors.text || '#333') }]}>
-                  All
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.filterChip,
-                  { backgroundColor: locationFilter ? (theme.colors.primary || '#4CAF50') : (theme.colors.background || '#f0f2f5'), borderColor: theme.colors.border || '#ddd' },
-                ]}
-                onPress={handleFilterNearby}
-              >
-                <Ionicons name="location-outline" size={18} color={locationFilter ? '#fff' : (theme.colors.text || '#333')} />
-                <Text style={[styles.filterChipText, { color: locationFilter ? '#fff' : (theme.colors.text || '#333') }]} numberOfLines={1}>
-                  {locationFilter ? (locationFilter.length > 12 ? `${locationFilter.slice(0, 10)}…` : locationFilter) : 'Nearby'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-            <AppBanner
-              title="Welcome to House of Jainz"
-              subtitle="Connect with the community, share moments, and discover local shops."
-              icon="heart"
-            />
-          </>
+          <AppBanner
+            title="Welcome to House of Jainz"
+            subtitle="Connect with the community, share moments, and discover local shops."
+            icon="heart"
+          />
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>

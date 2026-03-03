@@ -50,6 +50,15 @@ export default function ProfileScreen({ navigation }) {
     }
   };
 
+  const removeProfilePicture = async () => {
+    try {
+      await api.delete('/auth/profile-picture');
+      if (refreshUser) await refreshUser();
+    } catch (err) {
+      Alert.alert('Error', err.response?.data?.error || 'Failed to remove profile picture.');
+    }
+  };
+
   const pickAndUploadProfilePicture = async () => {
     try {
       if (Platform.OS !== 'web') {
@@ -193,6 +202,14 @@ export default function ProfileScreen({ navigation }) {
         <Text style={[styles.userEmail, { color: theme.colors.textSecondary }]}>{user?.email}</Text>
         {user?.religion && (
           <Text style={[styles.userReligion, { color: theme.colors.primary }]}>{user.religion}</Text>
+        )}
+        {user?.avatar_url && (
+          <TouchableOpacity
+            onPress={() => confirmAsync('Remove photo', 'Remove your profile picture?', removeProfilePicture, 'Remove', 'Cancel')}
+            style={styles.removePhotoTouch}
+          >
+            <Text style={[styles.removePhotoText, { color: theme.colors.textMuted }]}>Remove photo</Text>
+          </TouchableOpacity>
         )}
       </View>
 
@@ -375,6 +392,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#4CAF50',
     fontWeight: '500',
+  },
+  removePhotoTouch: {
+    marginTop: 10,
+    paddingVertical: 4,
+  },
+  removePhotoText: {
+    fontSize: 14,
+    textDecorationLine: 'underline',
   },
   menu: {
     backgroundColor: '#fff',

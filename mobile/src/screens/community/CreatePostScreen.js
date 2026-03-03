@@ -87,10 +87,6 @@ export default function CreatePostScreen({ navigation }) {
       Alert.alert('Photo required', 'Please add a photo to your post.');
       return;
     }
-    if (!content.trim()) {
-      Alert.alert('Caption required', 'Please add a caption for your post.');
-      return;
-    }
 
     setLoading(true);
     try {
@@ -211,18 +207,30 @@ export default function CreatePostScreen({ navigation }) {
         }
       }
 
-      // Step 2: Create post with image URL and caption
+      // Step 2: Create post with image URL (caption optional)
       const postData = {
-        content: content.trim(),
+        content: (content && content.trim()) || '',
         location: location || null,
         imageUrl,
       };
 
       console.log('Creating post with data:', { ...postData, imageUrl: imageUrl ? 'URL set' : 'No image' });
-      await api.post('/community/posts', postData);
+      const res = await api.post('/community/posts', postData);
+      const created = res?.data?.post;
 
-      // Navigate back immediately after successful post
-      navigation.goBack();
+      // Navigate back with new post so feed can prepend without refetch
+      if (created) {
+        const newPost = {
+          ...created,
+          likesCount: 0,
+          commentsCount: 0,
+          isLiked: false,
+          isOwnPost: true,
+        };
+        navigation.navigate('CommunityFeed', { newPost });
+      } else {
+        navigation.goBack();
+      }
     } catch (error) {
       console.error('Post creation error:', error);
       Alert.alert('Error', error.response?.data?.error || 'Failed to create post');
@@ -248,7 +256,7 @@ export default function CreatePostScreen({ navigation }) {
 
         <TextInput
           style={styles.input}
-          placeholder="Write a caption..."
+          placeholder="Write a caption (optional)..."
           placeholderTextColor="#666"
           value={content}
           onChangeText={setContent}

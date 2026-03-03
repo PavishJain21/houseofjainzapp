@@ -67,6 +67,22 @@ You can modify the script to change:
 - Notifications are generated based on order statuses
 - All dates are randomized within the last 30-60 days
 
+## Forum users + posts seed (30 users, forum posts only)
+
+A separate script creates **30 dummy users** and **forum posts** (no rentals):
+
+- **Users**: 10 Jain, 5 Mehta, 5 Shah, 3 Kumawat, 2 Bagrecha, 5 Sharma. All religion Jain, password `password123`.
+- **Emails**: `forum.user1@test.com` … `forum.user30@test.com`
+- **Forum posts**: Realistic posts in **realestate**, **knowledge**, and **events** only (rentals excluded).
+
+From project root:
+
+```bash
+cd backend && node scripts/seed-forum-users.js
+```
+
+Login with any `forum.userN@test.com` / `password123`.
+
 ## Cleanup
 
 To remove all dummy data, you can:
