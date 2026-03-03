@@ -443,7 +443,7 @@ export default function App() {
 
   // Web: public URLs (shared post, privacy policy)
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    const path = window.location.pathname || '';
+    const path = (window.location.pathname || '').replace(/\/$/, '') || '/';
     if (path === '/privacypolicy') {
       return (
         <View style={styles.webRoot}>
