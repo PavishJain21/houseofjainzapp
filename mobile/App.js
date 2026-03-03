@@ -424,6 +424,14 @@ export default function App() {
       adsenseMeta.content = 'ca-pub-7344910238595105';
       document.head.appendChild(adsenseMeta);
     }
+    if (!document.querySelector('script[data-adsense-client="ca-pub-7344910238595105"]')) {
+      const adsenseScript = document.createElement('script');
+      adsenseScript.async = true;
+      adsenseScript.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7344910238595105';
+      adsenseScript.crossOrigin = 'anonymous';
+      adsenseScript.setAttribute('data-adsense-client', 'ca-pub-7344910238595105');
+      document.head.appendChild(adsenseScript);
+    }
     const styleId = 'houseofjainz-safe-area';
     if (!document.getElementById(styleId)) {
       const style = document.createElement('style');
