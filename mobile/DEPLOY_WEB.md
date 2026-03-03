@@ -1,5 +1,18 @@
 # Deploy House of Jainz (Web)
 
+## Google AdSense verification
+
+The AdSense **meta tag** and **script** are injected into `dist/index.html` automatically when you run `npm run build:web` (see `scripts/inject-adsense-html.js`). They are placed at the **top of `<head>`** so crawlers see them immediately.
+
+**If AdSense says "We couldn't verify your site":**
+
+1. **Redeploy** – Commit and push the latest code (including the inject script and `package.json` build script), then trigger a new deploy so the live site serves the updated `index.html`.
+2. **Confirm the live HTML** – Open your live site URL, use “View Page Source” (not Inspect), and search for `google-adsense-account`. You should see the meta and script near the top of `<head>`.
+3. **Wait** – Verification can take from a few minutes up to 24–48 hours after the correct HTML is live.
+4. **Check access** – The site must be publicly reachable (no login wall on the homepage) and not blocked by `robots.txt` for Googlebot.
+
+---
+
 ## Important: build runs inside `mobile/`
 
 The web app lives in the **`mobile/`** folder. The build must run **from** `mobile/` so that **`dist/`** is created there. If your host uses the repo root, set the **root/base directory to `mobile`** so the build and publish paths are correct.

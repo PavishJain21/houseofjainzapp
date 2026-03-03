@@ -28,6 +28,7 @@ import { confirmAsync } from '../../utils/alert';
 import { useTheme } from '../../context/ThemeContext';
 import AppBanner from '../../components/AppBanner';
 import Logo from '../../components/Logo';
+import Picker, { PickerItem } from '../../components/Picker';
 
 export default function CommunityScreen({ navigation, route }) {
   const { user } = useContext(AuthContext);
@@ -210,6 +211,15 @@ export default function CommunityScreen({ navigation, route }) {
     if (!locationFilter) return;
     setLocationFilter(null);
     loadPosts(1, false, null);
+  };
+
+  const locationFilterValue = locationFilter ? 'nearby' : 'all';
+  const handleLocationFilterChange = (value) => {
+    if (value === 'all') {
+      handleFilterAll();
+    } else {
+      handleFilterNearby();
+    }
   };
 
   const handleLike = async (postId) => {
@@ -438,47 +448,26 @@ export default function CommunityScreen({ navigation, route }) {
       <View style={[styles.header, { backgroundColor: theme.colors.surface, shadowColor: theme.colors.shadow }]}>
         <Logo size="small" />
         <Text style={[styles.headerTitle, { color: theme.colors.text }]}>{t('community.title')}</Text>
-        <TouchableOpacity
-          style={styles.headerRefreshButton}
-          onPress={() => onRefresh()}
-          disabled={refreshing}
-          accessibilityLabel="Refresh"
-        >
-          <Ionicons
-            name="refresh"
-            size={24}
-            color={refreshing ? theme.colors.textMuted : theme.colors.text}
-          />
-        </TouchableOpacity>
       </View>
 
       <View style={[styles.filterRow, { backgroundColor: theme.colors.surface || '#fff', borderBottomColor: theme.colors.border || '#eee' }]}>
-        <TouchableOpacity
-          style={[
-            styles.filterChip,
-            { backgroundColor: !locationFilter ? (theme.colors.primary || '#4CAF50') : (theme.colors.background || '#f0f2f5'), borderColor: theme.colors.border || '#ddd' },
-          ]}
-          onPress={handleFilterAll}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="globe-outline" size={18} color={!locationFilter ? '#fff' : (theme.colors.text || '#333')} />
-          <Text style={[styles.filterChipText, { color: !locationFilter ? '#fff' : (theme.colors.text || '#333') }]}>
-            All
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.filterChip,
-            { backgroundColor: locationFilter ? (theme.colors.primary || '#4CAF50') : (theme.colors.background || '#f0f2f5'), borderColor: theme.colors.border || '#ddd' },
-          ]}
-          onPress={handleFilterNearby}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="location-outline" size={18} color={locationFilter ? '#fff' : (theme.colors.text || '#333')} />
-          <Text style={[styles.filterChipText, { color: locationFilter ? '#fff' : (theme.colors.text || '#333') }]} numberOfLines={1}>
-            {locationFilter ? (locationFilter.length > 12 ? `${locationFilter.slice(0, 10)}…` : locationFilter) : 'Nearby'}
-          </Text>
-        </TouchableOpacity>
+        <Text style={[styles.filterLabel, { color: theme.colors.textSecondary || '#666' }]}>Location</Text>
+        <View style={[styles.dropdownWrap, { backgroundColor: theme.colors.background || '#f0f2f5', borderColor: theme.colors.border || '#ddd' }]}>
+          <Picker
+            selectedValue={locationFilterValue}
+            onValueChange={handleLocationFilterChange}
+            style={[styles.dropdownPicker, { color: theme.colors.text || '#333' }]}
+          >
+            <PickerItem label="All" value="all" />
+            <PickerItem
+              label={locationFilter ? (locationFilter.length > 14 ? `${locationFilter.slice(0, 12)}…` : locationFilter) : 'Nearby'}
+              value="nearby"
+            />
+          </Picker>
+          {Platform.OS !== 'web' && (
+            <Ionicons name="chevron-down" size={18} color={theme.colors.textMuted || '#999'} style={styles.dropdownChevron} pointerEvents="none" />
+          )}
+        </View>
       </View>
 
       <FlatList
@@ -704,35 +693,37 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
     marginLeft: 12,
   },
-  headerRefreshButton: {
-    padding: 8,
-    marginRight: -8,
-  },
   filterRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 10,
-    gap: 10,
+    gap: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
     minHeight: 48,
     flexShrink: 0,
   },
-  filterChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 20,
-    borderWidth: 1,
-    gap: 6,
-    minWidth: 72,
-    flexShrink: 0,
-  },
-  filterChipText: {
+  filterLabel: {
     fontSize: 14,
     fontWeight: '600',
-    maxWidth: 120,
+  },
+  dropdownWrap: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    minHeight: 44,
+    maxWidth: 200,
+  },
+  dropdownPicker: {
+    flex: 1,
+    fontSize: 14,
+    ...(Platform.OS === 'web' ? { height: 44, paddingVertical: 0 } : {}),
+  },
+  dropdownChevron: {
+    marginLeft: 4,
   },
   floatingPostButton: {
     position: 'absolute',
