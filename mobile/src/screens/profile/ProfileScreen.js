@@ -134,6 +134,11 @@ export default function ProfileScreen({ navigation }) {
       icon: 'language-outline',
       onPress: () => setLanguageModalVisible(true),
     },
+    {
+      title: 'Jain Festivals',
+      icon: 'calendar-outline',
+      onPress: () => navigation.navigate('JainFestivals'),
+    },
     ...(isEnabled('consent') ? [
       { title: 'Terms and Conditions', icon: 'document-text-outline', onPress: () => navigation.navigate('Terms', { showAcceptButton: false }) },
       { title: 'Privacy Policy', icon: 'lock-closed-outline', onPress: () => navigation.navigate('Privacy', { showAcceptButton: false }) },

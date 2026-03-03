@@ -16,12 +16,14 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
 } from 'react-native';
+import * as Location from 'expo-location';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../config/api';
 import { AuthContext } from '../../context/AuthContext';
 import { shareContent, getPostShareUrl } from '../../utils/share';
 import { confirmAsync } from '../../utils/alert';
+import { getLocationWithFallback } from '../../utils/location';
 
 export default function CategoryFeedScreen({ route, navigation }) {
   const { user } = useContext(AuthContext);
@@ -38,19 +40,22 @@ export default function CategoryFeedScreen({ route, navigation }) {
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [postOptionsPost, setPostOptionsPost] = useState(null);
+  const [userCity, setUserCity] = useState(null);
+  const [locationFilter, setLocationFilter] = useState(null);
 
-  const loadPosts = async (page = 1, append = false) => {
+  const loadPosts = async (page = 1, append = false, locationParam = undefined) => {
     if (!categorySlug) return;
     if (append && loadingMore) return;
     if (!append && loading) return;
+    const loc = locationParam !== undefined ? locationParam : locationFilter;
 
     if (append) setLoadingMore(true);
     else setLoading(true);
 
     try {
-      const res = await api.get(`/forum/categories/${categorySlug}/posts`, {
-        params: { page, limit: 10 },
-      });
+      const params = { page, limit: 10 };
+      if (loc && String(loc).trim()) params.location = String(loc).trim();
+      const res = await api.get(`/forum/categories/${categorySlug}/posts`, { params });
       const newPosts = res.data.posts || [];
       const pagination = res.data.pagination || {};
 
@@ -101,6 +106,45 @@ export default function CategoryFeedScreen({ route, navigation }) {
     setHasMore(true);
     await loadPosts(1, false);
     setRefreshing(false);
+  };
+
+  const handleFilterNearby = async () => {
+    if (locationFilter) return;
+    let city = userCity;
+    if (!city) {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Location', 'Allow location to filter posts by nearby area.');
+          return;
+        }
+        const locationData = await getLocationWithFallback({});
+        const reverseGeocode = await Location.reverseGeocodeAsync({
+          latitude: locationData.coords.latitude,
+          longitude: locationData.coords.longitude,
+        });
+        if (reverseGeocode?.length) {
+          const address = reverseGeocode[0];
+          city = address.city || address.district || address.subregion || address.region || null;
+          setUserCity(city);
+        }
+      } catch (e) {
+        Alert.alert('Error', e?.message || 'Could not get location');
+        return;
+      }
+    }
+    if (city) {
+      setLocationFilter(city);
+      await loadPosts(1, false, city);
+    } else {
+      Alert.alert('Location', 'Could not detect your area. Try again or use All.');
+    }
+  };
+
+  const handleFilterAll = () => {
+    if (!locationFilter) return;
+    setLocationFilter(null);
+    loadPosts(1, false, null);
   };
 
   const loadMore = () => {
@@ -298,6 +342,26 @@ export default function CategoryFeedScreen({ route, navigation }) {
         onEndReached={loadMore}
         onEndReachedThreshold={0.5}
         contentContainerStyle={styles.list}
+        ListHeaderComponent={
+          <View style={styles.filterRow}>
+            <TouchableOpacity
+              style={[styles.filterChip, !locationFilter && styles.filterChipActive]}
+              onPress={handleFilterAll}
+            >
+              <Ionicons name="globe-outline" size={18} color={!locationFilter ? '#fff' : '#333'} />
+              <Text style={[styles.filterChipText, !locationFilter && styles.filterChipTextActive]}>All</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.filterChip, locationFilter && styles.filterChipActive]}
+              onPress={handleFilterNearby}
+            >
+              <Ionicons name="location-outline" size={18} color={locationFilter ? '#fff' : '#333'} />
+              <Text style={[styles.filterChipText, locationFilter && styles.filterChipTextActive]} numberOfLines={1}>
+                {locationFilter ? (locationFilter.length > 12 ? `${locationFilter.slice(0, 10)}…` : locationFilter) : 'Nearby'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        }
         ListEmptyComponent={
           <View style={styles.empty}>
             <Ionicons name="chatbubbles-outline" size={56} color="#ccc" />
@@ -460,6 +524,41 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f0f2f5',
+  },
+  filterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 10,
+    backgroundColor: '#fff',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#e0e0e0',
+    minHeight: 48,
+    flexShrink: 0,
+  },
+  filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    backgroundColor: '#f0f2f5',
+    gap: 6,
+    minWidth: 72,
+    flexShrink: 0,
+  },
+  filterChipActive: {
+    backgroundColor: '#4CAF50',
+  },
+  filterChipText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    maxWidth: 120,
+  },
+  filterChipTextActive: {
+    color: '#fff',
   },
   webOptionsOverlay: {
     flex: 1,

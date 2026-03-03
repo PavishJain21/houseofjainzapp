@@ -262,8 +262,9 @@ router.get('/posts', authenticateToken, async (req, res) => {
       .order('created_at', { ascending: false })
       .range(offset, offset + limitNum - 1);
 
-    if (location) {
-      query = query.eq('location', location);
+    if (location && typeof location === 'string' && location.trim()) {
+      const loc = location.trim();
+      query = query.ilike('location', `%${loc}%`);
     }
 
     const { data: posts, error, count } = await query;

@@ -21,7 +21,7 @@ router.get('/categories', (req, res) => {
 router.get('/categories/:slug/posts', authenticateToken, async (req, res) => {
   try {
     const { slug } = req.params;
-    const { page = 1, limit = 10 } = req.query;
+    const { page = 1, limit = 10, location } = req.query;
     const userId = req.user.userId;
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
@@ -32,12 +32,18 @@ router.get('/categories/:slug/posts', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Invalid category' });
     }
 
-    const { data: posts, error, count } = await supabase
+    let query = supabase
       .from('forum_posts')
       .select('*, user:users(id, name, email)', { count: 'exact' })
       .eq('category_slug', slug)
       .order('created_at', { ascending: false })
       .range(offset, offset + limitNum - 1);
+
+    if (location && typeof location === 'string' && location.trim()) {
+      query = query.ilike('location', `%${location.trim()}%`);
+    }
+
+    const { data: posts, error, count } = await query;
 
     if (error) {
       return res.status(400).json({ error: error.message });

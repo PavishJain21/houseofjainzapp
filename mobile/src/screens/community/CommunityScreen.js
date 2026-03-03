@@ -26,7 +26,6 @@ import LanguageContext from '../../context/LanguageContext';
 import { shareContent, getPostShareUrl } from '../../utils/share';
 import { confirmAsync } from '../../utils/alert';
 import { useTheme } from '../../context/ThemeContext';
-import AudioPlayer from '../../components/AudioPlayer';
 import AppBanner from '../../components/AppBanner';
 import Logo from '../../components/Logo';
 
@@ -43,6 +42,7 @@ export default function CommunityScreen({ navigation }) {
   const [comments, setComments] = useState([]);
   const [loadingComments, setLoadingComments] = useState(false);
   const [userCity, setUserCity] = useState(null);
+  const [locationFilter, setLocationFilter] = useState(null); // null = All, string = nearby city
   const [currentPage, setCurrentPage] = useState(1);
   const [postOptionsPost, setPostOptionsPost] = useState(null);
   const [hasMore, setHasMore] = useState(true);
@@ -51,7 +51,7 @@ export default function CommunityScreen({ navigation }) {
   useEffect(() => {
     const initialize = async () => {
       await getUserLocation();
-      await loadPosts();
+      await loadPosts(1, false);
     };
     initialize();
   }, []);
@@ -85,11 +85,12 @@ export default function CommunityScreen({ navigation }) {
   };
 
 
-  const loadPosts = async (page = 1, append = false) => {
+  const loadPosts = async (page = 1, append = false, locationParam = undefined) => {
     // Prevent duplicate requests
     if (append && loadingMore) return;
     if (!append && loading) return;
-    
+    const loc = locationParam !== undefined ? locationParam : locationFilter;
+
     if (append) {
       setLoadingMore(true);
     } else {
@@ -99,19 +100,18 @@ export default function CommunityScreen({ navigation }) {
     }
 
     try {
-      const response = await api.get('/community/posts', {
-        params: { page, limit: 10 },
-      });
+      const params = { page, limit: 10 };
+      if (loc && String(loc).trim()) params.location = String(loc).trim();
+      const response = await api.get('/community/posts', { params });
       
       let newPosts = response.data.posts || [];
       const pagination = response.data.pagination || {};
       
-      // Sort posts: same city first, then others (only for first page)
-      if (userCity && page === 1) {
+      // Sort posts: same city first when not filtering by location (only for first page)
+      if (userCity && page === 1 && !loc) {
         newPosts = newPosts.sort((a, b) => {
-          const aIsSameCity = a.location && a.location.toLowerCase() === userCity.toLowerCase();
-          const bIsSameCity = b.location && b.location.toLowerCase() === userCity.toLowerCase();
-          
+          const aIsSameCity = a.location && a.location.toLowerCase().includes(userCity.toLowerCase());
+          const bIsSameCity = b.location && b.location.toLowerCase().includes(userCity.toLowerCase());
           if (aIsSameCity && !bIsSameCity) return -1;
           if (!aIsSameCity && bIsSameCity) return 1;
           return 0;
@@ -154,12 +154,50 @@ export default function CommunityScreen({ navigation }) {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    // Reset pagination state
     setCurrentPage(1);
     setHasMore(true);
     await getUserLocation();
     await loadPosts(1, false);
     setRefreshing(false);
+  };
+
+  const handleFilterNearby = async () => {
+    if (locationFilter) return; // already filtering by nearby
+    let city = userCity;
+    if (!city) {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert(t('community.locationPermission') || 'Location', t('community.locationPermissionMessage') || 'Allow location to filter posts by nearby area.');
+          return;
+        }
+        const locationData = await getLocationWithFallback({});
+        const reverseGeocode = await Location.reverseGeocodeAsync({
+          latitude: locationData.coords.latitude,
+          longitude: locationData.coords.longitude,
+        });
+        if (reverseGeocode?.length) {
+          const address = reverseGeocode[0];
+          city = address.city || address.district || address.subregion || address.region || null;
+          setUserCity(city);
+        }
+      } catch (e) {
+        Alert.alert('Error', e?.message || 'Could not get location');
+        return;
+      }
+    }
+    if (city) {
+      setLocationFilter(city);
+      await loadPosts(1, false, city);
+    } else {
+      Alert.alert('Location', 'Could not detect your area. Try again or use All.');
+    }
+  };
+
+  const handleFilterAll = () => {
+    if (!locationFilter) return;
+    setLocationFilter(null);
+    loadPosts(1, false, null);
   };
 
   const handleLike = async (postId) => {
@@ -415,17 +453,37 @@ export default function CommunityScreen({ navigation }) {
         contentContainerStyle={styles.list}
         ListHeaderComponent={
           <>
+            <View style={[styles.filterRow, { backgroundColor: theme.colors.surface || '#fff', borderBottomColor: theme.colors.border || '#eee' }]}>
+              <TouchableOpacity
+                style={[
+                  styles.filterChip,
+                  { backgroundColor: !locationFilter ? (theme.colors.primary || '#4CAF50') : (theme.colors.background || '#f0f2f5'), borderColor: theme.colors.border || '#ddd' },
+                ]}
+                onPress={handleFilterAll}
+              >
+                <Ionicons name="globe-outline" size={18} color={!locationFilter ? '#fff' : (theme.colors.text || '#333')} />
+                <Text style={[styles.filterChipText, { color: !locationFilter ? '#fff' : (theme.colors.text || '#333') }]}>
+                  All
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.filterChip,
+                  { backgroundColor: locationFilter ? (theme.colors.primary || '#4CAF50') : (theme.colors.background || '#f0f2f5'), borderColor: theme.colors.border || '#ddd' },
+                ]}
+                onPress={handleFilterNearby}
+              >
+                <Ionicons name="location-outline" size={18} color={locationFilter ? '#fff' : (theme.colors.text || '#333')} />
+                <Text style={[styles.filterChipText, { color: locationFilter ? '#fff' : (theme.colors.text || '#333') }]} numberOfLines={1}>
+                  {locationFilter ? (locationFilter.length > 12 ? `${locationFilter.slice(0, 10)}…` : locationFilter) : 'Nearby'}
+                </Text>
+              </TouchableOpacity>
+            </View>
             <AppBanner
               title="Welcome to House of Jainz"
               subtitle="Connect with the community, share moments, and discover local shops."
               icon="heart"
             />
-            <View style={styles.audioPlayerContainer}>
-              <AudioPlayer
-                audioUrl="https://sqfhtmxufevsidyoofla.supabase.co/storage/v1/object/public/uploads/audio/navkar-mantra-by-lata-mangeshkar.mp3"
-                title="Navkar Mantra"
-              />
-            </View>
           </>
         }
         ListEmptyComponent={
@@ -637,6 +695,32 @@ const styles = StyleSheet.create({
     padding: 8,
     marginRight: -8,
   },
+  filterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    minHeight: 48,
+    flexShrink: 0,
+  },
+  filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 6,
+    minWidth: 72,
+    flexShrink: 0,
+  },
+  filterChipText: {
+    fontSize: 14,
+    fontWeight: '600',
+    maxWidth: 120,
+  },
   floatingPostButton: {
     position: 'absolute',
     bottom: 24,
@@ -711,10 +795,6 @@ const styles = StyleSheet.create({
   list: {
     padding: 0,
     paddingBottom: 100,
-  },
-  audioPlayerContainer: {
-    marginBottom: 12,
-    marginHorizontal: 12,
   },
   post: {
     backgroundColor: '#fff',
