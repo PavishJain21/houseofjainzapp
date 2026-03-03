@@ -16,6 +16,9 @@ import CommunityScreen from './src/screens/community/CommunityScreen';
 import ForumLandingScreen from './src/screens/forum/ForumLandingScreen';
 import CategoryFeedScreen from './src/screens/forum/CategoryFeedScreen';
 import CreateForumPostScreen from './src/screens/forum/CreateForumPostScreen';
+import SanghLandingScreen from './src/screens/sangh/SanghLandingScreen';
+import CreateSanghScreen from './src/screens/sangh/CreateSanghScreen';
+import SanghDetailScreen from './src/screens/sangh/SanghDetailScreen';
 import MarketplaceScreen from './src/screens/marketplace/MarketplaceScreen';
 import CartScreen from './src/screens/cart/CartScreen';
 import ProfileScreen from './src/screens/profile/ProfileScreen';
@@ -120,6 +123,30 @@ function ForumStack() {
           name="CreateForumPost" 
           component={CreateForumPostScreen}
           options={({ route }) => ({ title: route.params?.categoryLabel ? `Post in ${route.params.categoryLabel}` : 'Create Post' })}
+        />
+      </Stack.Navigator>
+    </FeatureGuard>
+  );
+}
+
+function SanghStack() {
+  return (
+    <FeatureGuard featureId="sangh" fallback={null}>
+      <Stack.Navigator>
+        <Stack.Screen 
+          name="SanghLanding" 
+          component={SanghLandingScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen 
+          name="CreateSangh" 
+          component={CreateSanghScreen}
+          options={{ title: 'Create Sangh' }}
+        />
+        <Stack.Screen 
+          name="SanghDetail" 
+          component={SanghDetailScreen}
+          options={({ route }) => ({ title: route.params?.sanghName || 'Group' })}
         />
       </Stack.Navigator>
     </FeatureGuard>
@@ -305,6 +332,7 @@ function MainTabs() {
   const { theme } = useTheme();
   const showCommunity = isEnabled('community');
   const showForum = isEnabled('forum');
+  const showSangh = isEnabled('sangh');
   const showMarketplace = isEnabled('marketplace');
   const showCart = isEnabled('cart');
   return (
@@ -317,6 +345,8 @@ function MainTabs() {
             iconName = focused ? 'people' : 'people-outline';
           } else if (route.name === 'ForumTab') {
             iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
+          } else if (route.name === 'SanghTab') {
+            iconName = focused ? 'people-circle' : 'people-circle-outline';
           } else if (route.name === 'MarketplaceTab') {
             iconName = focused ? 'storefront' : 'storefront-outline';
           } else if (route.name === 'CartTab') {
@@ -335,6 +365,7 @@ function MainTabs() {
     >
       {showCommunity && <Tab.Screen name="CommunityTab" component={CommunityStack} options={{ title: 'Community' }} />}
       {showForum && <Tab.Screen name="ForumTab" component={ForumStack} options={{ title: 'Forum' }} />}
+      {showSangh && <Tab.Screen name="SanghTab" component={SanghStack} options={{ title: 'Sangh' }} />}
       {showMarketplace && <Tab.Screen name="MarketplaceTab" component={MarketplaceStack} options={{ title: 'Marketplace' }} />}
       {showCart && (
         <Tab.Screen 
