@@ -332,26 +332,6 @@ export default function CategoryFeedScreen({ route, navigation }) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.filterRow}>
-        <TouchableOpacity
-          style={[styles.filterChip, !locationFilter && styles.filterChipActive]}
-          onPress={handleFilterAll}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="globe-outline" size={18} color={!locationFilter ? '#fff' : '#333'} />
-          <Text style={[styles.filterChipText, !locationFilter && styles.filterChipTextActive]}>All</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.filterChip, locationFilter && styles.filterChipActive]}
-          onPress={handleFilterNearby}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="location-outline" size={18} color={locationFilter ? '#fff' : '#333'} />
-          <Text style={[styles.filterChipText, locationFilter && styles.filterChipTextActive]} numberOfLines={1}>
-            {locationFilter ? (locationFilter.length > 12 ? `${locationFilter.slice(0, 10)}…` : locationFilter) : 'Nearby'}
-          </Text>
-        </TouchableOpacity>
-      </View>
       <FlatList
         data={posts}
         renderItem={renderPost}
@@ -524,41 +504,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f0f2f5',
-  },
-  filterRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    gap: 10,
-    backgroundColor: '#fff',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e0e0e0',
-    minHeight: 48,
-    flexShrink: 0,
-  },
-  filterChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 20,
-    backgroundColor: '#f0f2f5',
-    gap: 6,
-    minWidth: 72,
-    flexShrink: 0,
-  },
-  filterChipActive: {
-    backgroundColor: '#4CAF50',
-  },
-  filterChipText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-    maxWidth: 120,
-  },
-  filterChipTextActive: {
-    color: '#fff',
   },
   webOptionsOverlay: {
     flex: 1,

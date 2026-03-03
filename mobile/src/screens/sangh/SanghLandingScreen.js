@@ -199,7 +199,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    paddingTop: 48,
+    paddingTop: 25,
   },
   headerTitle: { fontSize: 20, fontWeight: '700', marginLeft: 12, flex: 1 },
   addBtn: { padding: 4 },
