@@ -1,12 +1,14 @@
 import React from 'react';
-import { Platform } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 
 // Platform-specific picker component
 let PickerComponent;
 
 if (Platform.OS === 'web') {
-  // Use HTML select for web
+  // Use HTML select for web. Flatten style so we never pass an array to the DOM
+  // (CSSStyleDeclaration does not support indexed property setters).
   PickerComponent = ({ selectedValue, onValueChange, children, style }) => {
+    const flatStyle = style != null ? (StyleSheet.flatten(style) || {}) : {};
     return (
       <select
         value={selectedValue}
@@ -18,7 +20,7 @@ if (Platform.OS === 'web') {
           borderRadius: '10px',
           border: '1px solid #e0e0e0',
           backgroundColor: '#f5f5f5',
-          ...style,
+          ...flatStyle,
         }}
       >
         {children}

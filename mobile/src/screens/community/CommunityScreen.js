@@ -28,7 +28,6 @@ import { confirmAsync } from '../../utils/alert';
 import { useTheme } from '../../context/ThemeContext';
 import AppBanner from '../../components/AppBanner';
 import Logo from '../../components/Logo';
-import Picker, { PickerItem } from '../../components/Picker';
 
 export default function CommunityScreen({ navigation, route }) {
   const { user } = useContext(AuthContext);
@@ -48,6 +47,7 @@ export default function CommunityScreen({ navigation, route }) {
   const [postOptionsPost, setPostOptionsPost] = useState(null);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [locationDropdownOpen, setLocationDropdownOpen] = useState(false);
 
   useEffect(() => {
     const initialize = async () => {
@@ -213,8 +213,11 @@ export default function CommunityScreen({ navigation, route }) {
     loadPosts(1, false, null);
   };
 
-  const locationFilterValue = locationFilter ? 'nearby' : 'all';
-  const handleLocationFilterChange = (value) => {
+  const locationLabel = locationFilter
+    ? (locationFilter.length > 14 ? `${locationFilter.slice(0, 12)}…` : locationFilter)
+    : 'All';
+  const selectLocationOption = (value) => {
+    setLocationDropdownOpen(false);
     if (value === 'all') {
       handleFilterAll();
     } else {
@@ -452,23 +455,53 @@ export default function CommunityScreen({ navigation, route }) {
 
       <View style={[styles.filterRow, { backgroundColor: theme.colors.surface || '#fff', borderBottomColor: theme.colors.border || '#eee' }]}>
         <Text style={[styles.filterLabel, { color: theme.colors.textSecondary || '#666' }]}>Location</Text>
-        <View style={[styles.dropdownWrap, { backgroundColor: theme.colors.background || '#f0f2f5', borderColor: theme.colors.border || '#ddd' }]}>
-          <Picker
-            selectedValue={locationFilterValue}
-            onValueChange={handleLocationFilterChange}
-            style={[styles.dropdownPicker, { color: theme.colors.text || '#333' }]}
-          >
-            <PickerItem label="All" value="all" />
-            <PickerItem
-              label={locationFilter ? (locationFilter.length > 14 ? `${locationFilter.slice(0, 12)}…` : locationFilter) : 'Nearby'}
-              value="nearby"
-            />
-          </Picker>
-          {Platform.OS !== 'web' && (
-            <Ionicons name="chevron-down" size={18} color={theme.colors.textMuted || '#999'} style={styles.dropdownChevron} pointerEvents="none" />
-          )}
-        </View>
+        <TouchableOpacity
+          style={[styles.dropdownTrigger, { backgroundColor: theme.colors.background || '#f0f2f5', borderColor: theme.colors.border || '#ddd' }]}
+          onPress={() => setLocationDropdownOpen(true)}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.dropdownTriggerText, { color: theme.colors.text || '#333' }]} numberOfLines={1}>
+            {locationLabel}
+          </Text>
+          <Ionicons name="chevron-down" size={18} color={theme.colors.textMuted || '#999'} />
+        </TouchableOpacity>
       </View>
+
+      {/* Location dropdown menu: backdrop and menu are siblings so menu taps register */}
+      <Modal
+        visible={locationDropdownOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setLocationDropdownOpen(false)}
+      >
+        <View style={styles.locationDropdownContainer}>
+          <TouchableWithoutFeedback onPress={() => setLocationDropdownOpen(false)}>
+            <View style={styles.locationDropdownBackdrop} />
+          </TouchableWithoutFeedback>
+          <View style={[styles.locationDropdownMenuWrap, { backgroundColor: theme.colors.surface || '#fff', borderColor: theme.colors.border || '#eee' }]}>
+            <TouchableOpacity
+              style={[styles.locationDropdownItem, !locationFilter && styles.locationDropdownItemActive, { borderBottomColor: theme.colors.border || '#eee' }]}
+              onPress={() => selectLocationOption('all')}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="globe-outline" size={20} color={!locationFilter ? (theme.colors.primary || '#4CAF50') : (theme.colors.textMuted || '#666')} />
+              <Text style={[styles.locationDropdownItemText, { color: !locationFilter ? (theme.colors.primary || '#4CAF50') : (theme.colors.text || '#333'), fontWeight: !locationFilter ? '600' : '400' }]}>
+                All
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.locationDropdownItem, styles.locationDropdownItemLast, locationFilter && styles.locationDropdownItemActive]}
+              onPress={() => selectLocationOption('nearby')}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="location-outline" size={20} color={locationFilter ? (theme.colors.primary || '#4CAF50') : (theme.colors.textMuted || '#666')} />
+              <Text style={[styles.locationDropdownItemText, { color: locationFilter ? (theme.colors.primary || '#4CAF50') : (theme.colors.text || '#333'), fontWeight: locationFilter ? '600' : '400' }]} numberOfLines={1}>
+                {locationFilter ? locationLabel : 'Nearby'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       <FlatList
         data={posts}
@@ -707,23 +740,58 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  dropdownWrap: {
-    flex: 1,
+  dropdownTrigger: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     borderRadius: 10,
     borderWidth: 1,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     minHeight: 44,
     maxWidth: 200,
+    gap: 8,
   },
-  dropdownPicker: {
-    flex: 1,
+  dropdownTriggerText: {
     fontSize: 14,
-    ...(Platform.OS === 'web' ? { height: 44, paddingVertical: 0 } : {}),
+    flex: 1,
   },
-  dropdownChevron: {
-    marginLeft: 4,
+  locationDropdownContainer: {
+    flex: 1,
+  },
+  locationDropdownBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  locationDropdownMenuWrap: {
+    position: 'absolute',
+    top: 110,
+    left: 12,
+    minWidth: 200,
+    borderRadius: 12,
+    borderWidth: 1,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  locationDropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    gap: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  locationDropdownItemLast: {
+    borderBottomWidth: 0,
+  },
+  locationDropdownItemActive: {},
+  locationDropdownItemText: {
+    fontSize: 15,
+    flex: 1,
   },
   floatingPostButton: {
     position: 'absolute',
