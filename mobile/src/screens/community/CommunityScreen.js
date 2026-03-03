@@ -10,7 +10,6 @@ import {
   Alert,
   Modal,
   TextInput,
-  Share,
   ActionSheetIOS,
   Platform,
   KeyboardAvoidingView,
@@ -21,9 +20,11 @@ import {
 import * as Location from 'expo-location';
 import { getLocationWithFallback } from '../../utils/location';
 import { Ionicons } from '@expo/vector-icons';
-import api, { API_BASE_URL } from '../../config/api';
+import api, { API_BASE_URL, SHARE_APP_URL } from '../../config/api';
 import { AuthContext } from '../../context/AuthContext';
 import LanguageContext from '../../context/LanguageContext';
+import { shareContent } from '../../utils/share';
+import { confirmAsync } from '../../utils/alert';
 import { useTheme } from '../../context/ThemeContext';
 import AudioPlayer from '../../components/AudioPlayer';
 import AppBanner from '../../components/AppBanner';
@@ -43,6 +44,7 @@ export default function CommunityScreen({ navigation }) {
   const [loadingComments, setLoadingComments] = useState(false);
   const [userCity, setUserCity] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [postOptionsPost, setPostOptionsPost] = useState(null);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
 
@@ -235,8 +237,11 @@ export default function CommunityScreen({ navigation }) {
       destructiveButtonIndex = 2;
     }
 
+    if (Platform.OS === 'web') {
+      setPostOptionsPost({ post, isOwnPost });
+      return;
+    }
     if (Platform.OS === 'ios') {
-      // Use ActionSheet for iOS
       ActionSheetIOS.showActionSheetWithOptions(
         {
           options,
@@ -244,20 +249,15 @@ export default function CommunityScreen({ navigation }) {
           destructiveButtonIndex,
         },
         (buttonIndex) => {
-          if (buttonIndex === 1) {
-            handleShare(post);
-          } else if (buttonIndex === 2 && isOwnPost) {
-            handleDeletePost(post);
-          }
+          if (buttonIndex === 1) handleShare(post);
+          else if (buttonIndex === 2 && isOwnPost) handleDeletePost(post);
         }
       );
     } else {
-      // Use Alert for Android
       const buttons = [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Share Post', onPress: () => handleShare(post) },
       ];
-      
       if (isOwnPost) {
         buttons.push({
           text: 'Delete Post',
@@ -265,81 +265,39 @@ export default function CommunityScreen({ navigation }) {
           onPress: () => handleDeletePost(post),
         });
       }
-
-      Alert.alert(
-        'Post Options',
-        'Choose an action',
-        buttons,
-        { cancelable: true }
-      );
+      Alert.alert('Post Options', 'Choose an action', buttons, { cancelable: true });
     }
   };
 
   const handleShare = async (post) => {
-    try {
-      let shareMessage = post.content || '';
-      
-      // Add image URL if available
-      if (post.image_url) {
-        shareMessage += `\n\n${post.image_url}`;
-      }
-      
-      // Add author info
-      if (post.user?.name) {
-        shareMessage += `\n\n- ${post.user.name}`;
-      }
-
-      const shareContent = {
-        message: shareMessage,
-        title: `Post by ${post.user?.name || 'User'}`,
-      };
-
-      const result = await Share.share(shareContent);
-      
-      if (result.action === Share.sharedAction) {
-        if (result.activityType) {
-          // Shared with activity type of result.activityType
-          console.log('Shared via', result.activityType);
-        } else {
-          // Shared
-          console.log('Post shared successfully');
-        }
-      } else if (result.action === Share.dismissedAction) {
-        // Dismissed
-        console.log('Share dismissed');
-      }
-    } catch (error) {
-      console.error('Error sharing post:', error);
-      Alert.alert('Error', 'Failed to share post');
-    }
+    setPostOptionsPost(null);
+    let message = post.content || '';
+    if (post.image_url) message += `\n\n${post.image_url}`;
+    if (post.user?.name) message += `\n\n- ${post.user.name}`;
+    await shareContent({
+      title: `Post by ${post.user?.name || 'User'}`,
+      message: message.trim(),
+      url: SHARE_APP_URL,
+    });
   };
 
   const handleDeletePost = async (post) => {
-    Alert.alert(
+    setPostOptionsPost(null);
+    confirmAsync(
       'Delete Post',
       'Are you sure you want to delete this post? This action cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await api.delete(`/community/posts/${post.id}`);
-              Alert.alert('Success', 'Post deleted successfully');
-              // Reload posts to update the list
-              loadPosts();
-            } catch (error) {
-              console.error('Error deleting post:', error);
-              Alert.alert(
-                'Error',
-                error.response?.data?.error || 'Failed to delete post'
-              );
-            }
-          },
-        },
-      ],
-      { cancelable: true }
+      async () => {
+        try {
+          await api.delete(`/community/posts/${post.id}`);
+          if (Platform.OS !== 'web') Alert.alert('Success', 'Post deleted successfully');
+          loadPosts();
+        } catch (error) {
+          console.error('Error deleting post:', error);
+          Alert.alert('Error', error.response?.data?.error || 'Failed to delete post');
+        }
+      },
+      'Delete',
+      'Cancel'
     );
   };
 
@@ -603,6 +561,48 @@ export default function CommunityScreen({ navigation }) {
           </TouchableWithoutFeedback>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Web: Post options modal (Share / Delete) */}
+      {Platform.OS === 'web' && (
+        <Modal
+          visible={!!postOptionsPost}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setPostOptionsPost(null)}
+        >
+          <TouchableWithoutFeedback onPress={() => setPostOptionsPost(null)}>
+            <View style={styles.webOptionsOverlay}>
+              <TouchableWithoutFeedback>
+                <View style={styles.webOptionsBox}>
+                  <Text style={styles.webOptionsTitle}>Post options</Text>
+                  <TouchableOpacity
+                    style={styles.webOptionsButton}
+                    onPress={() => postOptionsPost && handleShare(postOptionsPost.post)}
+                  >
+                    <Ionicons name="share-outline" size={22} color="#262626" />
+                    <Text style={styles.webOptionsButtonText}>Share Post</Text>
+                  </TouchableOpacity>
+                  {postOptionsPost?.isOwnPost && (
+                    <TouchableOpacity
+                      style={[styles.webOptionsButton, styles.webOptionsButtonDanger]}
+                      onPress={() => postOptionsPost && handleDeletePost(postOptionsPost.post)}
+                    >
+                      <Ionicons name="trash-outline" size={22} color="#c62828" />
+                      <Text style={[styles.webOptionsButtonText, { color: '#c62828' }]}>Delete Post</Text>
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity
+                    style={[styles.webOptionsButton, styles.webOptionsButtonCancel]}
+                    onPress={() => setPostOptionsPost(null)}
+                  >
+                    <Text style={styles.webOptionsButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                </View>
+              </TouchableWithoutFeedback>
+            </View>
+          </TouchableWithoutFeedback>
+        </Modal>
+      )}
     </View>
   );
 }
@@ -654,6 +654,43 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 10,
     elevation: 10,
+  },
+  webOptionsOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  webOptionsBox: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    minWidth: 240,
+    maxWidth: 320,
+  },
+  webOptionsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1a1a1a',
+    marginBottom: 12,
+  },
+  webOptionsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    gap: 10,
+  },
+  webOptionsButtonText: {
+    fontSize: 16,
+    color: '#262626',
+  },
+  webOptionsButtonDanger: {},
+  webOptionsButtonCancel: {
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+    marginTop: 4,
   },
   emptyContainer: {
     alignItems: 'center',

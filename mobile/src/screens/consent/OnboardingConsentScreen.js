@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import ConsentContext from '../../context/ConsentContext';
@@ -476,6 +477,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+    ...Platform.select({
+      web: { height: '100vh', maxHeight: '100vh', overflow: 'hidden' },
+      default: {},
+    }),
   },
   topBar: {
     flexDirection: 'row',
@@ -509,9 +514,14 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+    ...Platform.select({
+      web: { minHeight: 0, overflow: 'auto' },
+      default: {},
+    }),
   },
   content: {
     padding: 20,
+    paddingBottom: 40,
   },
   header: {
     alignItems: 'center',
