@@ -19,6 +19,7 @@ import CreateForumPostScreen from './src/screens/forum/CreateForumPostScreen';
 import SanghLandingScreen from './src/screens/sangh/SanghLandingScreen';
 import CreateSanghScreen from './src/screens/sangh/CreateSanghScreen';
 import SanghDetailScreen from './src/screens/sangh/SanghDetailScreen';
+import SanghAddMemberScreen from './src/screens/sangh/SanghAddMemberScreen';
 import MarketplaceScreen from './src/screens/marketplace/MarketplaceScreen';
 import CartScreen from './src/screens/cart/CartScreen';
 import ProfileScreen from './src/screens/profile/ProfileScreen';
@@ -147,6 +148,11 @@ function SanghStack() {
           name="SanghDetail" 
           component={SanghDetailScreen}
           options={({ route }) => ({ title: route.params?.sanghName || 'Group' })}
+        />
+        <Stack.Screen 
+          name="SanghAddMember" 
+          component={SanghAddMemberScreen}
+          options={({ route }) => ({ title: `Add members · ${route.params?.sanghName || 'Group'}` })}
         />
       </Stack.Navigator>
     </FeatureGuard>
@@ -410,17 +416,13 @@ export default function App() {
         const parsedUser = JSON.parse(userData);
         setUser(parsedUser);
         
-        // Refresh user data from API to get latest role
+        // Refresh user data from API (role, avatar_url, etc.)
         try {
           const response = await api.get('/auth/me');
           if (response.data.user) {
-            const updatedUser = {
-              ...parsedUser,
-              role: response.data.user.role || parsedUser.role || 'user'
-            };
+            const updatedUser = { ...parsedUser, ...response.data.user };
             setUser(updatedUser);
             await AsyncStorage.setItem('userData', JSON.stringify(updatedUser));
-            console.log('User role updated:', updatedUser.role);
           }
         } catch (error) {
           console.log('Could not refresh user data, using cached:', error.message);
@@ -430,6 +432,23 @@ export default function App() {
       console.error('Error checking token:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const refreshUser = async () => {
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      const userData = await AsyncStorage.getItem('userData');
+      if (!token || !userData) return;
+      const response = await api.get('/auth/me');
+      if (response.data.user) {
+        const parsed = JSON.parse(userData);
+        const updatedUser = { ...parsed, ...response.data.user };
+        setUser(updatedUser);
+        await AsyncStorage.setItem('userData', JSON.stringify(updatedUser));
+      }
+    } catch (error) {
+      console.log('Could not refresh user:', error.message);
     }
   };
 
@@ -457,6 +476,7 @@ export default function App() {
     },
     user,
     token: userToken,
+    refreshUser,
   };
 
   if (isLoading) {

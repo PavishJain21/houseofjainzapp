@@ -141,7 +141,8 @@ router.post('/login', [
         name: user.name,
         religion: user.religion,
         phone: user.phone,
-        role: userWithRole?.role || 'user'
+        role: userWithRole?.role || 'user',
+        avatar_url: user.avatar_url || null,
       }
     });
   } catch (error) {
@@ -259,6 +260,7 @@ router.post('/verify-otp', [
         religion: user.religion,
         phone: user.phone,
         role: userWithRole?.role || 'user',
+        avatar_url: user.avatar_url || null,
       },
     });
   } catch (error) {
@@ -272,7 +274,7 @@ router.get('/me', authenticateToken, async (req, res) => {
   try {
     const { data: user, error } = await supabase
       .from('users')
-      .select('id, email, name, religion, phone, role, created_at')
+      .select('id, email, name, religion, phone, role, avatar_url, created_at')
       .eq('id', req.user.userId)
       .single();
 
@@ -280,6 +282,48 @@ router.get('/me', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    res.json({ user });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Upload profile picture (base64). Updates user.avatar_url.
+// GET returns 405 so the URL is reachable (browser visits use GET).
+router.get('/profile-picture', authenticateToken, (req, res) => {
+  res.status(405).json({ error: 'Method not allowed. Use POST with body { imageBase64, mimeType? } to upload.' });
+});
+router.post('/profile-picture', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    let imageUrl = null;
+
+    if (req.body && req.body.imageBase64) {
+      const base64Data = req.body.imageBase64;
+      const mimeType = req.body.mimeType || 'image/jpeg';
+      const base64String = base64Data.includes(',') ? base64Data.split(',')[1] : base64Data;
+      const fileBuffer = Buffer.from(base64String, 'base64');
+      if (!fileBuffer.length) return res.status(400).json({ error: 'Invalid image data' });
+      const ext = mimeType === 'image/png' ? '.png' : '.jpg';
+      const fileName = `profiles/${userId}-${Date.now()}${ext}`;
+      const { data, error } = await supabase.storage
+        .from('uploads')
+        .upload(fileName, fileBuffer, { contentType: mimeType, upsert: true });
+      if (error) return res.status(500).json({ error: 'Failed to upload image' });
+      const { data: urlData } = supabase.storage.from('uploads').getPublicUrl(fileName);
+      imageUrl = urlData.publicUrl;
+    } else {
+      return res.status(400).json({ error: 'Provide imageBase64 in request body' });
+    }
+
+    const { data: user, error: updateError } = await supabase
+      .from('users')
+      .update({ avatar_url: imageUrl, updated_at: new Date().toISOString() })
+      .eq('id', userId)
+      .select('id, email, name, religion, phone, role, avatar_url, created_at')
+      .single();
+
+    if (updateError) return res.status(400).json({ error: updateError.message });
     res.json({ user });
   } catch (error) {
     res.status(500).json({ error: error.message });

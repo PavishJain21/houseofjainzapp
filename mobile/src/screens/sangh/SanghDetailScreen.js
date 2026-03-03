@@ -7,16 +7,14 @@ import {
   ActivityIndicator,
   Alert,
   ScrollView,
-  FlatList,
   TextInput,
-  Modal,
-  KeyboardAvoidingView,
   Platform,
   RefreshControl,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../config/api';
+import { confirmAsync } from '../../utils/alert';
 import { useTheme } from '../../context/ThemeContext';
 import { AuthContext } from '../../context/AuthContext';
 
@@ -32,9 +30,7 @@ export default function SanghDetailScreen({ route, navigation }) {
   const [refreshingMessages, setRefreshingMessages] = useState(false);
   const [newMessage, setNewMessage] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
-  const [addMemberModalVisible, setAddMemberModalVisible] = useState(false);
-  const [addMemberEmail, setAddMemberEmail] = useState('');
-  const [addingMember, setAddingMember] = useState(false);
+  const [actionError, setActionError] = useState('');
 
   const fetchOne = useCallback(async () => {
     if (!sanghId) return;
@@ -96,54 +92,48 @@ export default function SanghDetailScreen({ route, navigation }) {
 
   const handleLeave = () => {
     if (!sangh?.isMember || sangh?.creator?.id === user?.id) return;
-    Alert.alert(
+    confirmAsync(
       'Leave group?',
       'You will need to join again to see this group.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Leave',
-          style: 'destructive',
-          onPress: async () => {
-            setActioning(true);
-            try {
-              await api.post(`/sangh/${sanghId}/leave`);
-              setSangh((prev) => prev ? { ...prev, isMember: false, memberCount: Math.max(0, (prev.memberCount || 1) - 1) } : null);
-              setMessages([]);
-            } catch (err) {
-              Alert.alert('Error', err.response?.data?.error || 'Could not leave');
-            } finally {
-              setActioning(false);
-            }
-          },
-        },
-      ]
+      async () => {
+        setActioning(true);
+        try {
+          await api.post(`/sangh/${sanghId}/leave`);
+          setSangh((prev) => prev ? { ...prev, isMember: false, memberCount: Math.max(0, (prev.memberCount || 1) - 1) } : null);
+          setMessages([]);
+        } catch (err) {
+          const msg = err.response?.data?.error || 'Could not leave';
+          setActionError(msg);
+          if (Platform.OS !== 'web') Alert.alert('Error', msg);
+        } finally {
+          setActioning(false);
+        }
+      },
+      'Leave',
+      'Cancel'
     );
   };
 
   const handleDelete = () => {
     if (sangh?.creator?.id !== user?.id) return;
-    Alert.alert(
+    confirmAsync(
       'Delete group?',
       'This cannot be undone. All members will be removed.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            setActioning(true);
-            try {
-              await api.delete(`/sangh/${sanghId}`);
-              navigation.navigate('SanghLanding', { refreshSanghList: true });
-            } catch (err) {
-              Alert.alert('Error', err.response?.data?.error || 'Could not delete');
-            } finally {
-              setActioning(false);
-            }
-          },
-        },
-      ]
+      async () => {
+        setActioning(true);
+        try {
+          await api.delete(`/sangh/${sanghId}`);
+          navigation.navigate('SanghLanding', { refreshSanghList: true });
+        } catch (err) {
+          const msg = err.response?.data?.error || 'Could not delete';
+          setActionError(msg);
+          if (Platform.OS !== 'web') Alert.alert('Error', msg);
+        } finally {
+          setActioning(false);
+        }
+      },
+      'Delete',
+      'Cancel'
     );
   };
 
@@ -159,23 +149,6 @@ export default function SanghDetailScreen({ route, navigation }) {
       Alert.alert('Error', err.response?.data?.error || 'Could not send');
     } finally {
       setSendingMessage(false);
-    }
-  };
-
-  const handleAddMember = async () => {
-    const email = addMemberEmail.trim().toLowerCase();
-    if (!email || addingMember) return;
-    setAddingMember(true);
-    try {
-      await api.post(`/sangh/${sanghId}/members`, { email });
-      setAddMemberModalVisible(false);
-      setAddMemberEmail('');
-      setSangh((prev) => prev ? { ...prev, memberCount: (prev.memberCount || 0) + 1 } : null);
-      Alert.alert('Done', 'Member added');
-    } catch (err) {
-      Alert.alert('Error', err.response?.data?.error || 'Could not add member');
-    } finally {
-      setAddingMember(false);
     }
   };
 
@@ -253,6 +226,14 @@ export default function SanghDetailScreen({ route, navigation }) {
           </View>
         </View>
 
+        {actionError ? (
+          <View style={[styles.inlineErrorWrap, { backgroundColor: theme.colors.surface }]}>
+            <Text style={[styles.inlineError, { color: '#c62828' }]}>{actionError}</Text>
+            <TouchableOpacity onPress={() => setActionError('')} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+              <Ionicons name="close-circle" size={20} color="#c62828" />
+            </TouchableOpacity>
+          </View>
+        ) : null}
         <View style={styles.actions}>
           {!sangh.isMember && sangh.is_public && (
             <TouchableOpacity
@@ -276,7 +257,7 @@ export default function SanghDetailScreen({ route, navigation }) {
             <>
               <TouchableOpacity
                 style={[styles.secondaryBtn, { borderColor: theme.colors.primary }]}
-                onPress={() => setAddMemberModalVisible(true)}
+                onPress={() => navigation.navigate('SanghAddMember', { sanghId, sanghName: sangh?.name })}
                 disabled={actioning}
               >
                 <Ionicons name="person-add-outline" size={20} color={theme.colors.primary} />
@@ -346,41 +327,6 @@ export default function SanghDetailScreen({ route, navigation }) {
           </View>
         )}
       </ScrollView>
-
-      <Modal visible={addMemberModalVisible} transparent animationType="fade">
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => !addingMember && setAddMemberModalVisible(false)}
-        >
-          <TouchableOpacity activeOpacity={1} style={[styles.modalBox, { backgroundColor: theme.colors.surface }]}>
-            <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Add member</Text>
-            <Text style={[styles.modalHint, { color: theme.colors.textMuted }]}>Enter the member's email. Only admin can add people.</Text>
-            <TextInput
-              style={[styles.modalInput, { color: theme.colors.text, borderColor: theme.colors.border }]}
-              placeholder="Email"
-              placeholderTextColor={theme.colors.textMuted}
-              value={addMemberEmail}
-              onChangeText={setAddMemberEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              editable={!addingMember}
-            />
-            <View style={styles.modalActions}>
-              <TouchableOpacity style={[styles.modalCancel, { borderColor: theme.colors.border }]} onPress={() => !addingMember && setAddMemberModalVisible(false)} disabled={addingMember}>
-                <Text style={[styles.modalCancelText, { color: theme.colors.text }]}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalAdd, { backgroundColor: theme.colors.primary }]}
-                onPress={handleAddMember}
-                disabled={!addMemberEmail.trim() || addingMember}
-              >
-                {addingMember ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.modalAddText}>Add</Text>}
-              </TouchableOpacity>
-            </View>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
     </View>
   );
 }
@@ -435,14 +381,6 @@ const styles = StyleSheet.create({
   messageSender: { fontSize: 14, fontWeight: '600' },
   messageTime: { fontSize: 11 },
   messageContent: { fontSize: 15 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 },
-  modalBox: { width: '100%', maxWidth: 340, borderRadius: 16, padding: 20 },
-  modalTitle: { fontSize: 18, fontWeight: '700', marginBottom: 8 },
-  modalHint: { fontSize: 13, marginBottom: 12 },
-  modalInput: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16, marginBottom: 16 },
-  modalActions: { flexDirection: 'row', gap: 12 },
-  modalCancel: { flex: 1, paddingVertical: 12, borderRadius: 10, borderWidth: 1, alignItems: 'center' },
-  modalCancelText: { fontSize: 16, fontWeight: '600' },
-  modalAdd: { flex: 1, paddingVertical: 12, borderRadius: 10, alignItems: 'center' },
-  modalAddText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  inlineErrorWrap: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 12, borderRadius: 12, marginBottom: 12 },
+  inlineError: { flex: 1, fontSize: 14 },
 });

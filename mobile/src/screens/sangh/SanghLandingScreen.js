@@ -17,7 +17,7 @@ import { useTheme } from '../../context/ThemeContext';
 export default function SanghLandingScreen({ navigation, route }) {
   const { theme } = useTheme();
   const [sanghs, setSanghs] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -25,9 +25,9 @@ export default function SanghLandingScreen({ navigation, route }) {
 
   const loadPage = useCallback(async (pageNum = 1, append = false) => {
     if (append && loadingMore) return;
-    if (!append && loading && pageNum === 1) return;
+    if (!append && loading) return;
     if (append) setLoadingMore(true);
-    else if (pageNum === 1) setLoading(true);
+    else setLoading(true);
 
     try {
       const res = await api.get('/sangh', { params: { page: pageNum, limit: 15 } });

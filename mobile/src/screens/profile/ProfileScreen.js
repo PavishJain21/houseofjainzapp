@@ -7,7 +7,11 @@ import {
   ScrollView,
   Alert,
   Modal,
+  Image,
+  ActivityIndicator,
+  Platform,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '../../context/AuthContext';
 import LanguageContext from '../../context/LanguageContext';
@@ -19,7 +23,7 @@ import Logo from '../../components/Logo';
 import { confirmAsync } from '../../utils/alert';
 
 export default function ProfileScreen({ navigation }) {
-  const { user, signOut } = useContext(AuthContext);
+  const { user, signOut, refreshUser } = useContext(AuthContext);
   const { t, language, changeLanguage } = useContext(LanguageContext);
   const { theme, themePreference, setThemeMode } = useTheme();
   const { isEnabled } = useFeatures();
@@ -27,6 +31,7 @@ export default function ProfileScreen({ navigation }) {
   const [themeModalVisible, setThemeModalVisible] = useState(false);
   const [hasShops, setHasShops] = useState(false);
   const [checkingShops, setCheckingShops] = useState(true);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   useEffect(() => {
     if (isEnabled('seller')) checkSellerStatus();
@@ -42,6 +47,42 @@ export default function ProfileScreen({ navigation }) {
       setHasShops(false);
     } finally {
       setCheckingShops(false);
+    }
+  };
+
+  const pickAndUploadProfilePicture = async () => {
+    try {
+      if (Platform.OS !== 'web') {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission needed', 'Please allow access to your photos to set a profile picture.');
+          return;
+        }
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+        base64: true,
+      });
+      if (result.canceled || !result.assets?.[0]) return;
+      const asset = result.assets[0];
+      const base64 = asset.base64;
+      if (!base64) {
+        Alert.alert('Error', 'Could not read image. Try another photo.');
+        return;
+      }
+      setUploadingAvatar(true);
+      await api.post('/auth/profile-picture', {
+        imageBase64: base64,
+        mimeType: asset.mimeType || 'image/jpeg',
+      });
+      if (refreshUser) await refreshUser();
+    } catch (err) {
+      Alert.alert('Error', err.response?.data?.error || 'Failed to upload profile picture.');
+    } finally {
+      setUploadingAvatar(false);
     }
   };
 
@@ -118,11 +159,31 @@ export default function ProfileScreen({ navigation }) {
         variant="primary"
       />
       <View style={[styles.header, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.border }]}>
-        <View style={[styles.avatar, { backgroundColor: theme.colors.primary }]}>
-          <Text style={styles.avatarText}>
-            {user?.name?.charAt(0).toUpperCase() || 'U'}
-          </Text>
-        </View>
+        <TouchableOpacity
+          onPress={uploadingAvatar ? undefined : pickAndUploadProfilePicture}
+          activeOpacity={0.8}
+          style={styles.avatarTouch}
+        >
+          <View style={[styles.avatar, { backgroundColor: theme.colors.primary }]}>
+            {user?.avatar_url ? (
+              <Image source={{ uri: user.avatar_url }} style={styles.avatarImage} />
+            ) : (
+              <Text style={styles.avatarText}>
+                {user?.name?.charAt(0).toUpperCase() || 'U'}
+              </Text>
+            )}
+            {uploadingAvatar ? (
+              <View style={[styles.avatarOverlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+                <ActivityIndicator size="small" color="#fff" />
+              </View>
+            ) : null}
+          </View>
+          {!uploadingAvatar ? (
+            <View style={[styles.avatarBadge, { backgroundColor: theme.colors.primary }]}>
+              <Ionicons name="camera" size={14} color="#fff" />
+            </View>
+          ) : null}
+        </TouchableOpacity>
         <Text style={[styles.userName, { color: theme.colors.text }]}>{user?.name || t('common.user')}</Text>
         <Text style={[styles.userEmail, { color: theme.colors.textSecondary }]}>{user?.email}</Text>
         {user?.religion && (
@@ -256,6 +317,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
   },
+  avatarTouch: {
+    marginBottom: 15,
+    alignSelf: 'center',
+  },
   avatar: {
     width: 80,
     height: 80,
@@ -263,12 +328,32 @@ const styles = StyleSheet.create({
     backgroundColor: '#4CAF50',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 15,
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
   },
   avatarText: {
     color: '#fff',
     fontSize: 32,
     fontWeight: 'bold',
+  },
+  avatarOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarBadge: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   userName: {
     fontSize: 24,
