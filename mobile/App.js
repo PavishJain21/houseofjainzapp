@@ -417,9 +417,12 @@ export default function App() {
       const style = document.createElement('style');
       style.id = styleId;
       style.textContent = `
-        html, body, #root { min-height: 100vh; min-height: 100dvh; box-sizing: border-box; margin: 0; }
-        /* Keep bottom nav visible in Chrome/Safari - minimum bottom padding when safe-area is 0 */
-        [data-web-mobile-frame] { padding-bottom: max(env(safe-area-inset-bottom, 0px), 56px) !important; }
+        html, body, #root { height: 100%; min-height: 100vh; min-height: 100dvh; max-height: 100dvh; box-sizing: border-box; margin: 0; overflow: hidden; }
+        /* Constrain app to visible viewport so bottom nav is visible without pinching */
+        [data-web-mobile-frame] {
+          max-height: 100dvh !important;
+          padding-bottom: max(env(safe-area-inset-bottom, 0px), 56px) !important;
+        }
       `;
       document.head.appendChild(style);
     }
@@ -629,7 +632,9 @@ const MOBILE_VIEW_WIDTH = 430;
 const styles = StyleSheet.create({
   webRoot: {
     flex: 1,
+    height: '100%',
     minHeight: '100vh',
+    maxHeight: '100dvh',
     width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
@@ -639,7 +644,9 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     maxWidth: MOBILE_VIEW_WIDTH,
+    height: '100%',
     minHeight: '100vh',
+    maxHeight: '100dvh',
     backgroundColor: '#000',
     overflow: 'hidden',
   },
