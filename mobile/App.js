@@ -366,7 +366,10 @@ function MainTabs() {
         },
         tabBarActiveTintColor: theme.colors.tabActive,
         tabBarInactiveTintColor: theme.colors.tabInactive,
-        tabBarStyle: { backgroundColor: theme.colors.surface },
+        tabBarStyle: {
+          backgroundColor: theme.colors.surface,
+          ...(Platform.OS === 'web' ? { paddingBottom: 24, minHeight: 64 } : {}),
+        },
         headerShown: false,
       })}
     >
@@ -415,6 +418,8 @@ export default function App() {
       style.id = styleId;
       style.textContent = `
         html, body, #root { min-height: 100vh; min-height: 100dvh; box-sizing: border-box; margin: 0; }
+        /* Keep bottom nav visible in Chrome/Safari - minimum bottom padding when safe-area is 0 */
+        [data-web-mobile-frame] { padding-bottom: max(env(safe-area-inset-bottom, 0px), 24px) !important; }
       `;
       document.head.appendChild(style);
     }
@@ -609,7 +614,7 @@ export default function App() {
   if (Platform.OS === 'web') {
     return (
       <View style={styles.webRoot}>
-        <View style={[styles.webMobileFrame, styles.webFrameSafeArea]}>
+        <View style={[styles.webMobileFrame, styles.webFrameSafeArea]} dataSet={{ webMobileFrame: true }}>
           {appContent}
         </View>
       </View>
