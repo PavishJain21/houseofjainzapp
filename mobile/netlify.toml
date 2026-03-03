@@ -1,0 +1,20 @@
+# Netlify: build and publish the Expo web app from the mobile folder.
+# Root of this file = mobile/ in your repo.
+
+[build]
+  command = "npm install && npm run build:web"
+  publish = "dist"
+
+# SPA: serve index.html for public and shared links
+[[redirects]]
+  from = "/privacypolicy"
+  to = "/index.html"
+  status = 200
+[[redirects]]
+  from = "/post/*"
+  to = "/index.html"
+  status = 200
+[[redirects]]
+  from = "/forum/post/*"
+  to = "/index.html"
+  status = 200
