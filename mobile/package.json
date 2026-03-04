@@ -4,6 +4,7 @@
   "main": "node_modules/expo/AppEntry.js",
   "scripts": {
     "postinstall": "patch-package",
+    "fix:android-assets": "node scripts/fix-android-assets.js",
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
@@ -44,7 +45,8 @@
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
-    "patch-package": "^8.0.1"
+    "patch-package": "^8.0.1",
+    "sharp": "^0.33.5"
   },
   "private": true
 }
