@@ -152,6 +152,7 @@ export default function ProfileScreen({ navigation }) {
       { title: 'Terms and Conditions', icon: 'document-text-outline', onPress: () => navigation.navigate('Terms', { showAcceptButton: false }) },
       { title: 'Privacy Policy', icon: 'lock-closed-outline', onPress: () => navigation.navigate('Privacy', { showAcceptButton: false }) },
       { title: 'Cookie Policy', icon: 'restaurant-outline', onPress: () => navigation.navigate('CookiePolicy', { showAcceptButton: false }) },
+      { title: 'Child Safety', icon: 'shield-checkmark-outline', onPress: () => navigation.navigate('ChildSafety') },
     ] : []),
     {
       title: t('auth.logout'),

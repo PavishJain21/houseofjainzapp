@@ -65,6 +65,8 @@ import CookiePolicyScreen from './src/screens/consent/CookiePolicyScreen';
 import CookieConsent from './src/components/CookieConsent';
 import SharedPostView from './src/screens/shared/SharedPostView';
 import PublicPrivacyView from './src/screens/shared/PublicPrivacyView';
+import PublicChildSafetyView from './src/screens/shared/PublicChildSafetyView';
+import ChildSafetyScreen from './src/screens/consent/ChildSafetyScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -296,6 +298,11 @@ function ProfileStack() {
         name="CookiePolicy" 
         component={CookiePolicyScreen}
         options={{ title: 'Cookie Policy' }}
+      />
+      <Stack.Screen 
+        name="ChildSafety" 
+        component={ChildSafetyScreen}
+        options={{ title: 'Child Safety' }}
       />
     </Stack.Navigator>
   );
@@ -576,6 +583,15 @@ export default function App() {
         <View style={styles.webRoot}>
           <View style={styles.webMobileFrame}>
             <PublicPrivacyView />
+          </View>
+        </View>
+      );
+    }
+    if (path === '/childsafety') {
+      return (
+        <View style={styles.webRoot}>
+          <View style={styles.webMobileFrame}>
+            <PublicChildSafetyView />
           </View>
         </View>
       );
