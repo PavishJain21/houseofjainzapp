@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext, useRef } from 'react';
-import { View, ActivityIndicator, Platform, StyleSheet, Linking } from 'react-native';
+import { View, Text, ActivityIndicator, Platform, StyleSheet, Linking } from 'react-native';
 import { playDailyWelcomeSoundIfNeeded } from './src/utils/dailyWelcomeSound';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -21,6 +21,7 @@ import SanghLandingScreen from './src/screens/sangh/SanghLandingScreen';
 import CreateSanghScreen from './src/screens/sangh/CreateSanghScreen';
 import SanghDetailScreen from './src/screens/sangh/SanghDetailScreen';
 import SanghAddMemberScreen from './src/screens/sangh/SanghAddMemberScreen';
+import SanghMembersScreen from './src/screens/sangh/SanghMembersScreen';
 import MarketplaceScreen from './src/screens/marketplace/MarketplaceScreen';
 import CartScreen from './src/screens/cart/CartScreen';
 import ProfileScreen from './src/screens/profile/ProfileScreen';
@@ -67,6 +68,7 @@ import SharedPostView from './src/screens/shared/SharedPostView';
 import PublicPrivacyView from './src/screens/shared/PublicPrivacyView';
 import PublicChildSafetyView from './src/screens/shared/PublicChildSafetyView';
 import ChildSafetyScreen from './src/screens/consent/ChildSafetyScreen';
+import Logo from './src/components/Logo';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -158,6 +160,11 @@ function SanghStack() {
           component={SanghAddMemberScreen}
           options={({ route }) => ({ title: `Add members · ${route.params?.sanghName || 'Group'}` })}
         />
+        <Stack.Screen 
+          name="SanghMembers" 
+          component={SanghMembersScreen}
+          options={({ route }) => ({ title: `Members · ${route.params?.sanghName || 'Group'}` })}
+        />
       </Stack.Navigator>
     </FeatureGuard>
   );
@@ -206,13 +213,23 @@ function CartStack() {
   );
 }
 
+function ProfileHeaderTitle() {
+  const { theme } = useTheme();
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+      <Logo size="icon" />
+      <Text style={{ marginLeft: 8, fontSize: 18, fontWeight: '600', color: theme.colors?.text || '#000' }}>Profile</Text>
+    </View>
+  );
+}
+
 function ProfileStack() {
   return (
     <Stack.Navigator>
       <Stack.Screen 
         name="Profile" 
         component={ProfileScreen}
-        options={{ title: 'Profile' }}
+        options={{ headerTitle: () => <ProfileHeaderTitle /> }}
       />
       <Stack.Screen 
         name="Orders" 

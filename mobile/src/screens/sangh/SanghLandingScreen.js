@@ -137,9 +137,6 @@ export default function SanghLandingScreen({ navigation, route }) {
       <View style={[styles.header, { backgroundColor: theme.colors.surface }]}>
         <Logo size="small" />
         <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Sangh</Text>
-        <TouchableOpacity onPress={goCreate} style={styles.addBtn}>
-          <Ionicons name="add-circle" size={28} color={theme.colors.primary} />
-        </TouchableOpacity>
       </View>
       <View style={styles.subtitleRow}>
         <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
@@ -201,8 +198,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingTop: 25,
   },
-  headerTitle: { fontSize: 20, fontWeight: '700', marginLeft: 12, flex: 1 },
-  addBtn: { padding: 4 },
+  headerTitle: { fontSize: 20, fontWeight: '700', marginLeft: 12 },
   subtitleRow: { paddingHorizontal: 16, paddingBottom: 12 },
   subtitle: { fontSize: 14 },
   list: { padding: 16, paddingBottom: 90 },

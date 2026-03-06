@@ -119,6 +119,46 @@ router.post('/', authenticateToken, async (req, res) => {
 });
 
 /**
+ * GET /api/sangh/:id/members - List members (user must be a member). Returns id, name, email, is_creator.
+ * Must be defined before GET /:id so that /123/members is not matched by /:id.
+ */
+router.get('/:id/members', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { id } = req.params;
+
+    const { data: sangh } = await supabase.from('sanghs').select('id, is_public, created_by').eq('id', id).single();
+    if (!sangh) return res.status(404).json({ error: 'Group not found' });
+
+    const { data: myMember } = await supabase.from('sangh_members').select('id').eq('sangh_id', id).eq('user_id', userId).single();
+    if (!myMember) return res.status(403).json({ error: 'Not a member' });
+
+    const { data: rows } = await supabase
+      .from('sangh_members')
+      .select('user_id')
+      .eq('sangh_id', id);
+    const memberIds = (rows || []).map((r) => r.user_id);
+    if (memberIds.length === 0) return res.json({ members: [] });
+
+    const { data: users } = await supabase
+      .from('users')
+      .select('id, name, email')
+      .in('id', memberIds);
+
+    const members = (users || []).map((u) => ({
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      is_creator: sangh.created_by === u.id,
+    }));
+
+    res.json({ members });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
  * GET /api/sangh/:id - Get one group by id. Returns 404 if private and user not member.
  */
 router.get('/:id', authenticateToken, async (req, res) => {
@@ -279,9 +319,39 @@ router.get('/:id/messages', authenticateToken, async (req, res) => {
 
     if (error) return res.status(400).json({ error: error.message });
 
+    const list = messages || [];
+    const messageIds = list.map((m) => m.id);
+    const messagesWithReactions = list;
+
+    if (messageIds.length > 0) {
+      const { data: reactionRows } = await supabase
+        .from('sangh_message_reactions')
+        .select('message_id, user_id, emoji')
+        .in('message_id', messageIds);
+
+      const byMessage = {};
+      (reactionRows || []).forEach((r) => {
+        if (!byMessage[r.message_id]) byMessage[r.message_id] = [];
+        byMessage[r.message_id].push({ user_id: r.user_id, emoji: r.emoji });
+      });
+
+      const ALLOWED_EMOJIS = ['👍', '🙏', '❤️', '😂', '😮', '😢'];
+      messagesWithReactions.forEach((msg) => {
+        const list = byMessage[msg.id] || [];
+        const byEmoji = {};
+        list.forEach(({ user_id: uid, emoji }) => {
+          if (!ALLOWED_EMOJIS.includes(emoji)) return;
+          if (!byEmoji[emoji]) byEmoji[emoji] = { count: 0, userReacted: false };
+          byEmoji[emoji].count += 1;
+          if (uid === userId) byEmoji[emoji].userReacted = true;
+        });
+        msg.reactions = Object.entries(byEmoji).map(([emoji, o]) => ({ emoji, count: o.count, userReacted: o.userReacted }));
+      });
+    }
+
     const total = count ?? 0;
     res.json({
-      messages: messages || [],
+      messages: messagesWithReactions,
       pagination: { page: pageNum, limit: limitNum, total, totalPages: Math.ceil(total / limitNum), hasMore: pageNum * limitNum < total },
     });
   } catch (err) {
@@ -314,6 +384,95 @@ router.post('/:id/messages', authenticateToken, async (req, res) => {
 
     if (error) return res.status(400).json({ error: error.message });
     res.status(201).json({ message: msg });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * DELETE /api/sangh/:id/messages/:messageId - Delete a message. Admin (sangh creator) only.
+ * Must be defined before DELETE /:id so the path /:id/messages/:messageId is matched first.
+ */
+router.delete('/:id/messages/:messageId', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const sanghId = String(req.params.id || '').trim();
+    const messageId = String(req.params.messageId || '').trim();
+    if (!sanghId || !messageId) return res.status(400).json({ error: 'Missing sangh id or message id' });
+
+    const { data: sangh, error: sanghErr } = await supabase.from('sanghs').select('id, created_by').eq('id', sanghId).single();
+    if (sanghErr || !sangh) return res.status(404).json({ error: 'Group not found', code: 'GROUP_NOT_FOUND' });
+    if (sangh.created_by !== userId) return res.status(403).json({ error: 'Only the group admin can delete messages' });
+
+    const { data: msg, error: msgErr } = await supabase.from('sangh_messages').select('id, sangh_id').eq('id', messageId).single();
+    if (msgErr || !msg) return res.status(404).json({ error: 'Message not found', code: 'MESSAGE_NOT_FOUND' });
+    if (String(msg.sangh_id) !== sanghId) return res.status(404).json({ error: 'Message not found in this group', code: 'MESSAGE_NOT_FOUND' });
+
+    const { error: delErr } = await supabase.from('sangh_messages').delete().eq('id', messageId);
+    if (delErr) return res.status(400).json({ error: delErr.message });
+    res.json({ message: 'Message deleted', deleted: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+const REACTION_EMOJIS = ['👍', '🙏', '❤️', '😂', '😮', '😢'];
+
+async function ensureMemberAndMessage(sanghId, messageId, userId) {
+  const { data: sangh } = await supabase.from('sanghs').select('id').eq('id', sanghId).single();
+  if (!sangh) return { error: 'Group not found', status: 404 };
+  const { data: mem } = await supabase.from('sangh_members').select('id').eq('sangh_id', sanghId).eq('user_id', userId).single();
+  if (!mem) return { error: 'Not a member', status: 403 };
+  const { data: msg } = await supabase.from('sangh_messages').select('id, sangh_id').eq('id', messageId).single();
+  if (!msg || msg.sangh_id !== sanghId) return { error: 'Message not found', status: 404 };
+  return { message: msg };
+}
+
+/**
+ * POST /api/sangh/:id/messages/:messageId/reactions - Add or set reaction (members only). Body: { emoji }.
+ */
+router.post('/:id/messages/:messageId/reactions', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { id: sanghId, messageId } = req.params;
+    const { emoji } = req.body;
+
+    const check = await ensureMemberAndMessage(sanghId, messageId, userId);
+    if (check.error) return res.status(check.status || 400).json({ error: check.error });
+    if (!emoji || !REACTION_EMOJIS.includes(emoji)) {
+      return res.status(400).json({ error: `Emoji must be one of: ${REACTION_EMOJIS.join(' ')}` });
+    }
+
+    const { error: upsertErr } = await supabase
+      .from('sangh_message_reactions')
+      .upsert({ message_id: messageId, user_id: userId, emoji }, { onConflict: 'message_id,user_id' });
+
+    if (upsertErr) return res.status(400).json({ error: upsertErr.message });
+    res.json({ emoji, added: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * DELETE /api/sangh/:id/messages/:messageId/reactions - Remove my reaction (members only).
+ */
+router.delete('/:id/messages/:messageId/reactions', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { id: sanghId, messageId } = req.params;
+
+    const check = await ensureMemberAndMessage(sanghId, messageId, userId);
+    if (check.error) return res.status(check.status || 400).json({ error: check.error });
+
+    const { error } = await supabase
+      .from('sangh_message_reactions')
+      .delete()
+      .eq('message_id', messageId)
+      .eq('user_id', userId);
+
+    if (error) return res.status(400).json({ error: error.message });
+    res.json({ removed: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -393,6 +552,34 @@ router.post('/:id/members', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: insertError.message });
     }
     res.status(201).json({ message: 'Member added', added: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * DELETE /api/sangh/:id/members/:userId - Remove a member. Admin (creator) only. Cannot remove the creator.
+ */
+router.delete('/:id/members/:userId', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { id, userId: targetUserId } = req.params;
+
+    const { data: sangh } = await supabase.from('sanghs').select('id, created_by').eq('id', id).single();
+    if (!sangh) return res.status(404).json({ error: 'Group not found' });
+    if (sangh.created_by !== userId) return res.status(403).json({ error: 'Only the group admin can remove members' });
+    if (sangh.created_by === targetUserId) {
+      return res.status(400).json({ error: 'Cannot remove the group admin. Delete the group or transfer ownership instead.' });
+    }
+
+    const { error } = await supabase
+      .from('sangh_members')
+      .delete()
+      .eq('sangh_id', id)
+      .eq('user_id', targetUserId);
+
+    if (error) return res.status(400).json({ error: error.message });
+    res.json({ message: 'Member removed', removed: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

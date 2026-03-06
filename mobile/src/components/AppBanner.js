@@ -6,11 +6,13 @@ import { useTheme } from '../context/ThemeContext';
 /**
  * Reusable in-app banner for promos, tips, or featured content.
  * Theme-aware; use as ListHeaderComponent or anywhere in a screen.
+ * Pass renderIcon to show a custom component (e.g. Logo) instead of an Ionicons icon.
  */
 export default function AppBanner({
   title,
   subtitle,
   icon = 'sparkles',
+  renderIcon,
   onPress,
   style,
   variant = 'primary', // 'primary' | 'secondary' | 'gradient'
@@ -46,7 +48,7 @@ export default function AppBanner({
     >
       <View style={styles.content}>
         <View style={[styles.iconWrap, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
-          <Ionicons name={icon} size={24} color="#fff" />
+          {renderIcon ?? <Ionicons name={icon} size={24} color="#fff" />}
         </View>
         <View style={styles.textWrap}>
           <Text style={[styles.title, { color: textColor }]} numberOfLines={1}>
