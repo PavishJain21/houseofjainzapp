@@ -3,6 +3,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../config/api';
 import { AuthContext } from './AuthContext';
 
+// TEMPORARY: Set to true to skip the consent form and go straight to main app. Set back to false when ready.
+const SKIP_CONSENT_TEMPORARILY = true;
+
 // Provide default context value to prevent undefined errors
 const defaultContextValue = {
   consents: {},
@@ -26,6 +29,11 @@ export const ConsentProvider = ({ children }) => {
   const [needsConsent, setNeedsConsent] = useState(false);
 
   const loadConsents = useCallback(async (skipLoadingState = false) => {
+    if (SKIP_CONSENT_TEMPORARILY) {
+      setNeedsConsent(false);
+      if (!skipLoadingState) setLoading(false);
+      return { success: true, needsConsent: false };
+    }
     try {
       if (!skipLoadingState) {
         setLoading(true);

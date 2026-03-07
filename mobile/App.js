@@ -394,8 +394,10 @@ function MainTabs() {
   const showSangh = isEnabled('sangh');
   const showMarketplace = isEnabled('marketplace');
   const showCart = isEnabled('cart');
+  const initialTab = showCommunity ? 'CommunityTab' : (showForum ? 'ForumTab' : (showSangh ? 'SanghTab' : (showMarketplace ? 'MarketplaceTab' : 'ProfileTab')));
   return (
     <Tab.Navigator
+      initialRouteName={initialTab}
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color, size }) => {
           let iconName;
