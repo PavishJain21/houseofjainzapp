@@ -1,6 +1,15 @@
 const jwt = require('jsonwebtoken');
 const supabase = require('../config/supabase');
 
+function verifyToken(token) {
+  return new Promise((resolve, reject) => {
+    jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+      if (err) reject(err);
+      else resolve(decoded);
+    });
+  });
+}
+
 // Middleware to check if user is admin or superadmin
 const requireAdmin = async (req, res, next) => {
   try {
@@ -11,35 +20,29 @@ const requireAdmin = async (req, res, next) => {
       return res.status(401).json({ error: 'Access token required' });
     }
 
-    jwt.verify(token, process.env.JWT_SECRET, async (err, decoded) => {
-      if (err) {
-        return res.status(403).json({ error: 'Invalid or expired token' });
-      }
+    const decoded = await verifyToken(token);
 
-      // Get user role from database
-      const { data: user, error } = await supabase
-        .from('users')
-        .select('id, email, role')
-        .eq('id', decoded.userId)
-        .single();
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('id, email, role')
+      .eq('id', decoded.userId)
+      .single();
 
-      if (error || !user) {
-        return res.status(403).json({ error: 'User not found' });
-      }
+    if (error || !user) {
+      return res.status(403).json({ error: 'User not found' });
+    }
 
-      // Check if user is admin or superadmin
-      if (user.role !== 'admin' && user.role !== 'superadmin') {
-        return res.status(403).json({ error: 'Admin access required' });
-      }
+    if (user.role !== 'admin' && user.role !== 'superadmin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
 
-      req.user = {
-        ...decoded,
-        role: user.role
-      };
-      next();
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+    req.user = { ...decoded, role: user.role };
+    next();
+  } catch (err) {
+    if (err.name === 'TokenExpiredError' || err.name === 'JsonWebTokenError') {
+      return res.status(403).json({ error: 'Invalid or expired token' });
+    }
+    res.status(500).json({ error: err.message || 'Server error' });
   }
 };
 
@@ -53,35 +56,29 @@ const requireSuperAdmin = async (req, res, next) => {
       return res.status(401).json({ error: 'Access token required' });
     }
 
-    jwt.verify(token, process.env.JWT_SECRET, async (err, decoded) => {
-      if (err) {
-        return res.status(403).json({ error: 'Invalid or expired token' });
-      }
+    const decoded = await verifyToken(token);
 
-      // Get user role from database
-      const { data: user, error } = await supabase
-        .from('users')
-        .select('id, email, role')
-        .eq('id', decoded.userId)
-        .single();
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('id, email, role')
+      .eq('id', decoded.userId)
+      .single();
 
-      if (error || !user) {
-        return res.status(403).json({ error: 'User not found' });
-      }
+    if (error || !user) {
+      return res.status(403).json({ error: 'User not found' });
+    }
 
-      // Check if user is superadmin
-      if (user.role !== 'superadmin') {
-        return res.status(403).json({ error: 'Super admin access required' });
-      }
+    if (user.role !== 'superadmin') {
+      return res.status(403).json({ error: 'Super admin access required' });
+    }
 
-      req.user = {
-        ...decoded,
-        role: user.role
-      };
-      next();
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+    req.user = { ...decoded, role: user.role };
+    next();
+  } catch (err) {
+    if (err.name === 'TokenExpiredError' || err.name === 'JsonWebTokenError') {
+      return res.status(403).json({ error: 'Invalid or expired token' });
+    }
+    res.status(500).json({ error: err.message || 'Server error' });
   }
 };
 
