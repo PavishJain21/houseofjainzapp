@@ -438,6 +438,13 @@ export default function CommunityScreen({ navigation, route }) {
       <View style={[styles.header, { backgroundColor: theme.colors.surface, shadowColor: theme.colors.shadow }]}>
         <Logo size="small" />
         <Text style={[styles.headerTitle, { color: theme.colors.text }]}>{t('community.title')}</Text>
+        <TouchableOpacity
+          style={styles.headerRightButton}
+          onPress={() => navigation.navigate('JainFestivals')}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
+          <Ionicons name="calendar-outline" size={26} color={theme.colors.primary || '#4CAF50'} />
+        </TouchableOpacity>
       </View>
 
       <FlatList
@@ -662,6 +669,11 @@ const styles = StyleSheet.create({
     color: '#1a1a1a',
     letterSpacing: -0.5,
     marginLeft: 12,
+  },
+  headerRightButton: {
+    padding: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   floatingPostButton: {
     position: 'absolute',

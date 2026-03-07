@@ -108,6 +108,11 @@ function CommunityStack() {
           component={CreatePostScreen}
           options={{ title: 'Create Post' }}
         />
+        <Stack.Screen 
+          name="JainFestivals" 
+          component={JainFestivalsScreen}
+          options={{ title: 'Jain Festivals' }}
+        />
       </Stack.Navigator>
     </FeatureGuard>
   );
@@ -296,11 +301,6 @@ function ProfileStack() {
         name="MyPosts" 
         component={MyPostsScreen}
         options={{ title: 'My Posts' }}
-      />
-      <Stack.Screen 
-        name="JainFestivals" 
-        component={JainFestivalsScreen}
-        options={{ title: 'Jain Festivals' }}
       />
       <Stack.Screen 
         name="ContactUs" 

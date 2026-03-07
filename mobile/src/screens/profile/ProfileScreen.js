@@ -143,11 +143,6 @@ export default function ProfileScreen({ navigation }) {
       onPress: () => setLanguageModalVisible(true),
     },
     {
-      title: 'Jain Festivals',
-      icon: 'calendar-outline',
-      onPress: () => navigation.navigate('JainFestivals'),
-    },
-    {
       title: t('profile.contactUs'),
       icon: 'mail-open-outline',
       onPress: () => navigation.navigate('ContactUs'),
