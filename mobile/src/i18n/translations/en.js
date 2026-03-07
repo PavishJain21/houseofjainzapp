@@ -177,6 +177,13 @@ export default {
     themeLight: 'Light',
     themeDark: 'Dark',
     themeSystem: 'System',
+    contactUs: 'Contact Us',
+    contactUsSubtitle: 'Have a question or feedback? Open our contact page to get in touch.',
+    openContactPage: 'Open contact page',
+    contactUrlNotSupported: 'Cannot open the contact page.',
+    contactOpenFailed: 'Could not open the contact page. Please try again.',
+    contactOpensInNewTab: 'Opens in a new tab.',
+    contactUsInfo: 'You can reach us via the contact form or email on our website.',
   },
 
   // Seller

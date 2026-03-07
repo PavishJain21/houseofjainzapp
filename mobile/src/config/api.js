@@ -24,6 +24,9 @@ export const SHARE_APP_URL =
   (typeof window !== 'undefined' && window.location && window.location.origin) ||
   'https://houseofjainz.com';
 
+// Contact page URL — used by Profile > Contact Us to open in browser
+export const CONTACT_PAGE_URL = `${SHARE_APP_URL.replace(/\/$/, '')}/contact`;
+
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {

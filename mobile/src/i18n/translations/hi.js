@@ -177,6 +177,13 @@ export default {
     themeLight: 'लाइट',
     themeDark: 'डार्क',
     themeSystem: 'सिस्टम',
+    contactUs: 'संपर्क करें',
+    contactUsSubtitle: 'कोई सवाल या फीडबैक? संपर्क पेज खोलकर हमसे जुड़ें।',
+    openContactPage: 'संपर्क पेज खोलें',
+    contactUrlNotSupported: 'संपर्क पेज नहीं खोला जा सकता।',
+    contactOpenFailed: 'संपर्क पेज खोलने में समस्या। कृपया पुनः प्रयास करें।',
+    contactOpensInNewTab: 'नई टैब में खुलेगा।',
+    contactUsInfo: 'आप हमारी वेबसाइट पर संपर्क फॉर्म या ईमेल के जरिए पहुंच सकते हैं।',
   },
 
   // Seller

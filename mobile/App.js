@@ -42,6 +42,7 @@ import AddAddressScreen from './src/screens/address/AddAddressScreen';
 import NotificationsScreen from './src/screens/notifications/NotificationsScreen';
 import MyPostsScreen from './src/screens/profile/MyPostsScreen';
 import JainFestivalsScreen from './src/screens/profile/JainFestivalsScreen';
+import ContactUsScreen from './src/screens/profile/ContactUsScreen';
 import AdminDashboardScreen from './src/screens/admin/AdminDashboardScreen';
 import AdminUsersScreen from './src/screens/admin/AdminUsersScreen';
 import AdminShopsScreen from './src/screens/admin/AdminShopsScreen';
@@ -300,6 +301,11 @@ function ProfileStack() {
         name="JainFestivals" 
         component={JainFestivalsScreen}
         options={{ title: 'Jain Festivals' }}
+      />
+      <Stack.Screen 
+        name="ContactUs" 
+        component={ContactUsScreen}
+        options={{ title: 'Contact Us' }}
       />
       <Stack.Screen 
         name="Terms" 
