@@ -660,17 +660,8 @@ export default function App() {
     }
   }
 
-  // Check if user is superadmin or admin
-  const isSuperAdmin = user?.role === 'superadmin' || user?.role === 'admin';
-  
-  // Debug logging
-  if (user) {
-    console.log('=== USER ROLE CHECK ===');
-    console.log('Current user:', JSON.stringify(user, null, 2));
-    console.log('User role:', user?.role);
-    console.log('Is Super Admin:', isSuperAdmin);
-    console.log('========================');
-  }
+  // Basic flow: admin or superadmin → admin portal; otherwise → main app
+  const isAdminUser = user?.role === 'admin' || user?.role === 'superadmin';
 
   const appContent = (
     <LanguageProvider>
@@ -680,7 +671,7 @@ export default function App() {
             <ConsentProvider>
               <ConsentNavigator 
                 userToken={userToken} 
-                isSuperAdmin={isSuperAdmin}
+                isAdminUser={isAdminUser}
                 onForceMainTabsChange={setForceMainTabs}
                 forceMainTabs={forceMainTabs}
               />
@@ -741,13 +732,12 @@ const styles = StyleSheet.create({
 });
 
 // Separate component to handle consent checking
-function ConsentNavigator({ userToken, isSuperAdmin, onForceMainTabsChange, forceMainTabs }) {
+// Basic flow: admin/superadmin → admin portal; else → main app (forceMainTabs lets admin open main app)
+function ConsentNavigator({ userToken, isAdminUser, onForceMainTabsChange, forceMainTabs }) {
   const consentContext = useContext(ConsentContext);
-  const { isEnabled } = useFeatures();
   const { theme } = useTheme();
   const [showCookieConsent, setShowCookieConsent] = useState(false);
-  const adminEnabled = isEnabled('admin');
-  const showAdminStack = isSuperAdmin && adminEnabled && !forceMainTabs;
+  const showAdminStack = isAdminUser && !forceMainTabs;
   const navTheme = {
     dark: theme.mode === 'dark',
     colors: {
@@ -780,15 +770,6 @@ function ConsentNavigator({ userToken, isSuperAdmin, onForceMainTabsChange, forc
       
       // Only show cookie consent if main consents are granted
       setShowCookieConsent(needsCookies && !needsTerms && !needsPrivacy);
-      
-      // Debug logging
-      console.log('ConsentNavigator state:', {
-        contextNeedsConsent,
-        needsTerms,
-        needsPrivacy,
-        needsCookies,
-        showCookieConsent: needsCookies && !needsTerms && !needsPrivacy
-      });
     }
   }, [userToken, consentLoading, consents, contextNeedsConsent]);
 
@@ -801,15 +782,6 @@ function ConsentNavigator({ userToken, isSuperAdmin, onForceMainTabsChange, forc
         <ActivityIndicator size="large" />
       </View>
     );
-  }
-
-  // Debug: Log the current state to verify consent check is working
-  if (userToken && !consentLoading) {
-    console.log('=== ConsentNavigator Render ===');
-    console.log('contextNeedsConsent:', contextNeedsConsent);
-    console.log('consents:', JSON.stringify(consents, null, 2));
-    console.log('Will show consent screen:', contextNeedsConsent);
-    console.log('==============================');
   }
 
   return (
