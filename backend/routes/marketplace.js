@@ -1,6 +1,6 @@
 const express = require('express');
 const supabase = require('../config/supabase');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, optionalAuthenticateToken, requireNotGuest } = require('../middleware/auth');
 const multer = require('multer');
 const path = require('path');
 
@@ -31,8 +31,8 @@ const upload = multer({
   }
 });
 
-// Get shops by location with pagination
-router.get('/shops', authenticateToken, async (req, res) => {
+// Get shops by location with pagination (optional auth: guests can browse)
+router.get('/shops', optionalAuthenticateToken, async (req, res) => {
   try {
     const { location, page = 1, limit = 10 } = req.query;
     const pageNum = parseInt(page);
@@ -106,7 +106,7 @@ router.get('/shops', authenticateToken, async (req, res) => {
 });
 
 // Create shop
-router.post('/shops', authenticateToken, async (req, res) => {
+router.post('/shops', authenticateToken, requireNotGuest, async (req, res) => {
   try {
     const { name, description, location, address, phone } = req.body;
     const userId = req.user.userId;
@@ -140,8 +140,8 @@ router.post('/shops', authenticateToken, async (req, res) => {
   }
 });
 
-// Get products by shop with pagination
-router.get('/shops/:shopId/products', authenticateToken, async (req, res) => {
+// Get products by shop with pagination (optional auth: guests can browse)
+router.get('/shops/:shopId/products', optionalAuthenticateToken, async (req, res) => {
   try {
     const { shopId } = req.params;
     const { page = 1, limit = 12 } = req.query;
@@ -179,8 +179,8 @@ router.get('/shops/:shopId/products', authenticateToken, async (req, res) => {
   }
 });
 
-// Get all products (with location filter) with pagination
-router.get('/products', authenticateToken, async (req, res) => {
+// Get all products (with location filter) with pagination (optional auth: guests can browse)
+router.get('/products', optionalAuthenticateToken, async (req, res) => {
   try {
     const { location, shopId, page = 1, limit = 12 } = req.query;
     const pageNum = parseInt(page);
@@ -230,8 +230,8 @@ router.get('/products', authenticateToken, async (req, res) => {
   }
 });
 
-// Get single product by ID
-router.get('/products/:productId', authenticateToken, async (req, res) => {
+// Get single product by ID (optional auth: guests can browse)
+router.get('/products/:productId', optionalAuthenticateToken, async (req, res) => {
   try {
     const { productId } = req.params;
 

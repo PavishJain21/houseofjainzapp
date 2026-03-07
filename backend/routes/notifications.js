@@ -1,12 +1,13 @@
 const express = require('express');
 const supabase = require('../config/supabase');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, requireNotGuest } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Get user notifications
+// Get user notifications (guest gets empty)
 router.get('/', authenticateToken, async (req, res) => {
   try {
+    if (req.user.role === 'guest') return res.json({ notifications: [], unreadCount: 0 });
     const userId = req.user.userId;
     const { page = 1, limit = 20 } = req.query;
     const offset = (page - 1) * limit;
@@ -39,7 +40,7 @@ router.get('/', authenticateToken, async (req, res) => {
 });
 
 // Mark notification as read
-router.put('/:notificationId/read', authenticateToken, async (req, res) => {
+router.put('/:notificationId/read', authenticateToken, requireNotGuest, async (req, res) => {
   try {
     const { notificationId } = req.params;
     const userId = req.user.userId;
@@ -63,7 +64,7 @@ router.put('/:notificationId/read', authenticateToken, async (req, res) => {
 });
 
 // Mark all notifications as read
-router.put('/read-all', authenticateToken, async (req, res) => {
+router.put('/read-all', authenticateToken, requireNotGuest, async (req, res) => {
   try {
     const userId = req.user.userId;
 

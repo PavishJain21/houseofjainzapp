@@ -1,27 +1,29 @@
 const express = require('express');
 const supabase = require('../config/supabase');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, optionalAuthenticateToken, requireNotGuest } = require('../middleware/auth');
 
 const router = express.Router();
 
 /**
  * GET /api/sangh - List groups: public groups + groups user is a member of.
- * Paginated; no duplicate fetches.
+ * Paginated; optional auth (guests see only public groups).
  */
-router.get('/', authenticateToken, async (req, res) => {
+router.get('/', optionalAuthenticateToken, async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user ? req.user.userId : null;
     const { page = 1, limit = 20 } = req.query;
     const pageNum = Math.max(1, parseInt(page, 10));
     const limitNum = Math.min(50, Math.max(5, parseInt(limit, 10)));
     const offset = (pageNum - 1) * limitNum;
 
-    const { data: memberships } = await supabase
-      .from('sangh_members')
-      .select('sangh_id')
-      .eq('user_id', userId);
-
-    const mySanghIds = (memberships || []).map((m) => m.sangh_id);
+    let mySanghIds = [];
+    if (userId) {
+      const { data: memberships } = await supabase
+        .from('sangh_members')
+        .select('sangh_id')
+        .eq('user_id', userId);
+      mySanghIds = (memberships || []).map((m) => m.sangh_id);
+    }
 
     let query = supabase
       .from('sanghs')
@@ -82,7 +84,7 @@ router.get('/', authenticateToken, async (req, res) => {
 /**
  * POST /api/sangh - Create a group (sangh). Creator is added as member.
  */
-router.post('/', authenticateToken, async (req, res) => {
+router.post('/', authenticateToken, requireNotGuest, async (req, res) => {
   try {
     const userId = req.user.userId;
     const { name, description, is_public } = req.body;
@@ -215,7 +217,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 /**
  * POST /api/sangh/:id/join - Join a public group (or private if invited later).
  */
-router.post('/:id/join', authenticateToken, async (req, res) => {
+router.post('/:id/join', authenticateToken, requireNotGuest, async (req, res) => {
   try {
     const userId = req.user.userId;
     const { id } = req.params;
@@ -254,7 +256,7 @@ router.post('/:id/join', authenticateToken, async (req, res) => {
 /**
  * POST /api/sangh/:id/leave - Leave a group. Creator cannot leave (must delete group or transfer).
  */
-router.post('/:id/leave', authenticateToken, async (req, res) => {
+router.post('/:id/leave', authenticateToken, requireNotGuest, async (req, res) => {
   try {
     const userId = req.user.userId;
     const { id } = req.params;
@@ -362,7 +364,7 @@ router.get('/:id/messages', authenticateToken, async (req, res) => {
 /**
  * POST /api/sangh/:id/messages - Send message. Admin (creator) only.
  */
-router.post('/:id/messages', authenticateToken, async (req, res) => {
+router.post('/:id/messages', authenticateToken, requireNotGuest, async (req, res) => {
   try {
     const userId = req.user.userId;
     const { id } = req.params;
@@ -393,7 +395,7 @@ router.post('/:id/messages', authenticateToken, async (req, res) => {
  * DELETE /api/sangh/:id/messages/:messageId - Delete a message. Admin (sangh creator) only.
  * Must be defined before DELETE /:id so the path /:id/messages/:messageId is matched first.
  */
-router.delete('/:id/messages/:messageId', authenticateToken, async (req, res) => {
+router.delete('/:id/messages/:messageId', authenticateToken, requireNotGuest, async (req, res) => {
   try {
     const userId = req.user.userId;
     const sanghId = String(req.params.id || '').trim();
@@ -431,7 +433,7 @@ async function ensureMemberAndMessage(sanghId, messageId, userId) {
 /**
  * POST /api/sangh/:id/messages/:messageId/reactions - Add or set reaction (members only). Body: { emoji }.
  */
-router.post('/:id/messages/:messageId/reactions', authenticateToken, async (req, res) => {
+router.post('/:id/messages/:messageId/reactions', authenticateToken, requireNotGuest, async (req, res) => {
   try {
     const userId = req.user.userId;
     const { id: sanghId, messageId } = req.params;
@@ -457,7 +459,7 @@ router.post('/:id/messages/:messageId/reactions', authenticateToken, async (req,
 /**
  * DELETE /api/sangh/:id/messages/:messageId/reactions - Remove my reaction (members only).
  */
-router.delete('/:id/messages/:messageId/reactions', authenticateToken, async (req, res) => {
+router.delete('/:id/messages/:messageId/reactions', authenticateToken, requireNotGuest, async (req, res) => {
   try {
     const userId = req.user.userId;
     const { id: sanghId, messageId } = req.params;
@@ -527,7 +529,7 @@ router.get('/:id/members/search', authenticateToken, async (req, res) => {
 /**
  * POST /api/sangh/:id/members - Add a member. Admin (creator) only. Body: { user_id } or { email }.
  */
-router.post('/:id/members', authenticateToken, async (req, res) => {
+router.post('/:id/members', authenticateToken, requireNotGuest, async (req, res) => {
   try {
     const userId = req.user.userId;
     const { id } = req.params;
@@ -560,7 +562,7 @@ router.post('/:id/members', authenticateToken, async (req, res) => {
 /**
  * DELETE /api/sangh/:id/members/:userId - Remove a member. Admin (creator) only. Cannot remove the creator.
  */
-router.delete('/:id/members/:userId', authenticateToken, async (req, res) => {
+router.delete('/:id/members/:userId', authenticateToken, requireNotGuest, async (req, res) => {
   try {
     const userId = req.user.userId;
     const { id, userId: targetUserId } = req.params;
@@ -588,7 +590,7 @@ router.delete('/:id/members/:userId', authenticateToken, async (req, res) => {
 /**
  * DELETE /api/sangh/:id - Delete group (creator only). Cascades to members.
  */
-router.delete('/:id', authenticateToken, async (req, res) => {
+router.delete('/:id', authenticateToken, requireNotGuest, async (req, res) => {
   try {
     const userId = req.user.userId;
     const { id } = req.params;

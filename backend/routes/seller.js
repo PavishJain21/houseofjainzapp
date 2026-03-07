@@ -1,6 +1,6 @@
 const express = require('express');
 const supabase = require('../config/supabase');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, requireNotGuest } = require('../middleware/auth');
 const { roundPrice } = require('../utils/commission');
 const multer = require('multer');
 const path = require('path');
@@ -42,9 +42,10 @@ const upload = multer({
   }
 });
 
-// Get seller's shops
+// Get seller's shops (guest gets empty)
 router.get('/shops', authenticateToken, async (req, res) => {
   try {
+    if (req.user.role === 'guest') return res.json({ shops: [] });
     const userId = req.user.userId;
 
     const { data: shops, error } = await supabase
@@ -65,7 +66,7 @@ router.get('/shops', authenticateToken, async (req, res) => {
 
 // Upload image to Supabase Storage (separate endpoint)
 // Supports both FormData (multer) and base64 JSON
-router.post('/upload-image', authenticateToken, (req, res, next) => {
+router.post('/upload-image', authenticateToken, requireNotGuest, (req, res, next) => {
   console.log('Product upload endpoint hit');
   console.log('Content-Type:', req.headers['content-type']);
   console.log('Request body type:', typeof req.body);
@@ -232,7 +233,7 @@ async function handleFormDataUpload(req, res) {
 }
 
 // Add product to shop (now accepts image_url instead of file)
-router.post('/products', authenticateToken, async (req, res) => {
+router.post('/products', authenticateToken, requireNotGuest, async (req, res) => {
   try {
     const { shopId, name, description, price, category, stock, imageUrl } = req.body;
     const userId = req.user.userId;
@@ -305,7 +306,7 @@ router.post('/products', authenticateToken, async (req, res) => {
 });
 
 // Update product
-router.put('/products/:productId', authenticateToken, async (req, res) => {
+router.put('/products/:productId', authenticateToken, requireNotGuest, async (req, res) => {
   try {
     const { productId } = req.params;
     const { name, description, price, category, stock, imageUrl } = req.body;
@@ -362,7 +363,7 @@ router.put('/products/:productId', authenticateToken, async (req, res) => {
 });
 
 // Delete product (only by shop owner)
-router.delete('/products/:productId', authenticateToken, async (req, res) => {
+router.delete('/products/:productId', authenticateToken, requireNotGuest, async (req, res) => {
   try {
     const { productId } = req.params;
     const userId = req.user.userId;
@@ -524,7 +525,7 @@ router.get('/products', authenticateToken, async (req, res) => {
 });
 
 // Update product
-router.put('/products/:productId', authenticateToken, upload.single('image'), async (req, res) => {
+router.put('/products/:productId', authenticateToken, requireNotGuest, upload.single('image'), async (req, res) => {
   try {
     const { productId } = req.params;
     const { name, description, price, category, stock, is_active } = req.body;
@@ -624,7 +625,7 @@ router.get('/orders', authenticateToken, async (req, res) => {
 });
 
 // Update order status
-router.put('/orders/:orderId/status', authenticateToken, async (req, res) => {
+router.put('/orders/:orderId/status', authenticateToken, requireNotGuest, async (req, res) => {
   try {
     const { orderId } = req.params;
     const { status } = req.body;

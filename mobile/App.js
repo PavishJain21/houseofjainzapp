@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useContext, useRef } from 'react';
 import { View, Text, ActivityIndicator, Platform, StyleSheet, Linking } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { playDailyWelcomeSoundIfNeeded } from './src/utils/dailyWelcomeSound';
+import { setRequestLoginCallback } from './src/utils/requestLogin';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -93,6 +95,16 @@ function WithConsentGuard(Component) {
       </ConsentGuard>
     );
   };
+}
+
+/** Web guest mode: shows MainTabs and registers callback so 401 responses navigate to Login */
+function GuestMainScreen() {
+  const navigation = useNavigation();
+  useEffect(() => {
+    setRequestLoginCallback((routeName) => navigation.navigate(routeName || 'Login'));
+    return () => setRequestLoginCallback(null);
+  }, [navigation]);
+  return <MainTabs />;
 }
 
 function CommunityStack() {
@@ -514,8 +526,11 @@ export default function App() {
         setUserToken(token);
         const parsedUser = JSON.parse(userData);
         setUser(parsedUser);
-        
-        // Refresh user data from API (role, avatar_url, etc.)
+        // Refresh user data from API (skip for guest; /me returns guest anyway)
+        if (parsedUser.role === 'guest') {
+          setIsLoading(false);
+          return;
+        }
         try {
           const response = await api.get('/auth/me');
           if (response.data.user) {
@@ -525,6 +540,21 @@ export default function App() {
           }
         } catch (error) {
           console.log('Could not refresh user data, using cached:', error.message);
+        }
+      } else {
+        // No token: create view-only guest token so user can browse (read-only)
+        try {
+          const response = await api.get('/auth/guest-token');
+          const guestToken = response.data?.token;
+          const guestUser = response.data?.user || { role: 'guest' };
+          if (guestToken) {
+            await AsyncStorage.setItem('userToken', guestToken);
+            await AsyncStorage.setItem('userData', JSON.stringify(guestUser));
+            setUserToken(guestToken);
+            setUser(guestUser);
+          }
+        } catch (err) {
+          console.log('Could not get guest token:', err.message);
         }
       }
     } catch (error) {
@@ -774,15 +804,16 @@ function ConsentNavigator({ userToken, isAdminUser, onForceMainTabsChange, force
   }, [userToken, consentLoading, consents, contextNeedsConsent]);
 
   // Only show loading on initial load, not when updating consents
-  // Returning null causes navigation to reset, so we show a loading indicator instead
-  // Wait for consent status to load before deciding which screen to show
-  if (consentLoading && userToken && Object.keys(consents).length === 0) {
+  if (consentLoading && userToken && Object.keys(consents).length === 0 && user?.role !== 'guest') {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" />
       </View>
     );
   }
+
+  // Guest: view-only token; skip consent, show main app (on web allow navigating to Login/Register)
+  const isGuest = user?.role === 'guest';
 
   return (
     <>
@@ -791,7 +822,22 @@ function ConsentNavigator({ userToken, isAdminUser, onForceMainTabsChange, force
         theme={navTheme}
       >
         {userToken ? (
-          contextNeedsConsent ? (
+          isGuest ? (
+            Platform.OS === 'web' ? (
+              <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName="Main">
+                <Stack.Screen name="Main" component={GuestMainScreen} />
+                <Stack.Screen name="Login" component={WithGuestGuard(LoginScreen)} />
+                <Stack.Screen name="Register" component={WithGuestGuard(RegisterScreen)} />
+                <Stack.Screen name="ForgotPassword" component={WithGuestGuard(ForgotPasswordScreen)} />
+                <Stack.Screen name="ResetPassword" component={WithGuestGuard(ResetPasswordScreen)} />
+                <Stack.Screen name="AuthCallback" component={AuthCallbackScreen} />
+              </Stack.Navigator>
+            ) : (
+              <AuthGuard>
+                <MainTabs />
+              </AuthGuard>
+            )
+          ) : contextNeedsConsent ? (
             <ConsentGuard>
               <Stack.Navigator screenOptions={{ headerShown: false }}>
                 <Stack.Screen name="OnboardingConsent" component={WithConsentGuard(OnboardingConsentScreen)} />
@@ -809,11 +855,20 @@ function ConsentNavigator({ userToken, isAdminUser, onForceMainTabsChange, force
               <MainTabs />
             </AuthGuard>
           )
+        ) : Platform.OS === 'web' ? (
+          <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName="Main">
+            <Stack.Screen name="Main" component={GuestMainScreen} />
+            <Stack.Screen name="Login" component={WithGuestGuard(LoginScreen)} />
+            <Stack.Screen name="Register" component={WithGuestGuard(RegisterScreen)} />
+            <Stack.Screen name="ForgotPassword" component={WithGuestGuard(ForgotPasswordScreen)} />
+            <Stack.Screen name="ResetPassword" component={WithGuestGuard(ResetPasswordScreen)} />
+            <Stack.Screen name="AuthCallback" component={AuthCallbackScreen} />
+          </Stack.Navigator>
         ) : (
           <Stack.Navigator
             screenOptions={{ headerShown: false }}
             initialRouteName={
-              Platform.OS === 'web' && typeof window !== 'undefined' && (window.location.pathname || '').replace(/\/$/, '') === '/auth/callback'
+              typeof window !== 'undefined' && (window.location.pathname || '').replace(/\/$/, '') === '/auth/callback'
                 ? 'AuthCallback'
                 : 'Login'
             }

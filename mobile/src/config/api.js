@@ -1,6 +1,7 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import { requestLogin } from '../utils/requestLogin';
 
 // In development, use local backend so feature flags and data come from your .env
 // Android emulator: use 10.0.2.2 instead of localhost; physical device: use your machine's IP
@@ -50,6 +51,17 @@ api.interceptors.request.use(
     return config;
   },
   (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// On 401 (e.g. guest tried a CRUD action), prompt login if guest stack registered a callback
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      requestLogin();
+    }
     return Promise.reject(error);
   }
 );

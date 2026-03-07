@@ -1,6 +1,6 @@
 const express = require('express');
 const supabase = require('../config/supabase');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, requireNotGuest } = require('../middleware/auth');
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
 const { roundPrice } = require('../utils/commission');
@@ -55,7 +55,7 @@ async function calculateCommission(amount) {
 }
 
 // Create Razorpay order for checkout
-router.post('/create-order', authenticateToken, async (req, res) => {
+router.post('/create-order', authenticateToken, requireNotGuest, async (req, res) => {
   try {
     const { addressId } = req.body;
     const userId = req.user.userId;
@@ -128,7 +128,7 @@ router.post('/create-order', authenticateToken, async (req, res) => {
 });
 
 // Verify payment and create order
-router.post('/verify-and-checkout', authenticateToken, async (req, res) => {
+router.post('/verify-and-checkout', authenticateToken, requireNotGuest, async (req, res) => {
   try {
     const { 
       addressId, 
@@ -412,7 +412,7 @@ router.post('/verify-and-checkout', authenticateToken, async (req, res) => {
 });
 
 // Get payment HTML page for WebView
-router.post('/payment-page', authenticateToken, async (req, res) => {
+router.post('/payment-page', authenticateToken, requireNotGuest, async (req, res) => {
   try {
     const { addressId, razorpayOrderId, amount } = req.body;
     const userId = req.user.userId;
@@ -662,7 +662,7 @@ router.get('/order/:orderId', authenticateToken, async (req, res) => {
 });
 
 // Simplified payment verification (for browser-based flow without signature)
-router.post('/verify-payment-simple', authenticateToken, async (req, res) => {
+router.post('/verify-payment-simple', authenticateToken, requireNotGuest, async (req, res) => {
   try {
     const { 
       addressId, 
@@ -885,7 +885,7 @@ router.post('/verify-payment-simple', authenticateToken, async (req, res) => {
 });
 
 // Create Razorpay Payment Link (for external payment)
-router.post('/create-payment-link', authenticateToken, async (req, res) => {
+router.post('/create-payment-link', authenticateToken, requireNotGuest, async (req, res) => {
   try {
     const { addressId, amount } = req.body;
     const userId = req.user.userId;
@@ -985,7 +985,7 @@ router.post('/create-payment-link', authenticateToken, async (req, res) => {
 });
 
 // Check payment status (for polling)
-router.post('/check-payment-status', authenticateToken, async (req, res) => {
+router.post('/check-payment-status', authenticateToken, requireNotGuest, async (req, res) => {
   try {
     const { razorpayOrderId, addressId, paymentLinkId } = req.body;
     const userId = req.user.userId;

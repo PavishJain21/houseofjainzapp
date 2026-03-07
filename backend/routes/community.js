@@ -1,6 +1,6 @@
 const express = require('express');
 const supabase = require('../config/supabase');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, optionalAuthenticateToken, requireNotGuest } = require('../middleware/auth');
 const multer = require('multer');
 const path = require('path');
 
@@ -32,7 +32,7 @@ const uploadAnyImage = upload.fields([
 
 // Upload image to Supabase Storage (separate endpoint)
 // Supports both FormData (multer) and base64 JSON
-router.post('/upload-image', authenticateToken, (req, res, next) => {
+router.post('/upload-image', authenticateToken, requireNotGuest, (req, res, next) => {
   console.log('Upload endpoint hit');
   console.log('Content-Type:', req.headers['content-type']);
   console.log('Request body type:', typeof req.body);
@@ -205,7 +205,7 @@ async function handleFormDataUpload(req, res) {
 }
 
 // Create post (now accepts imageUrl instead of file)
-router.post('/posts', authenticateToken, async (req, res) => {
+router.post('/posts', authenticateToken, requireNotGuest, async (req, res) => {
   try {
     console.log('Create post endpoint called');
     const { content, location, imageUrl } = req.body;
@@ -244,11 +244,11 @@ router.post('/posts', authenticateToken, async (req, res) => {
   }
 });
 
-// Get all posts with pagination
-router.get('/posts', authenticateToken, async (req, res) => {
+// Get all posts with pagination (optional auth: guests can browse)
+router.get('/posts', optionalAuthenticateToken, async (req, res) => {
   try {
     const { location, page = 1, limit = 10 } = req.query;
-    const userId = req.user.userId;
+    const userId = req.user ? req.user.userId : null;
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
     const offset = (pageNum - 1) * limitNum;
@@ -288,20 +288,24 @@ router.get('/posts', authenticateToken, async (req, res) => {
           .select('*', { count: 'exact', head: true })
           .eq('post_id', post.id);
 
-        // Check if current user liked this post
-        const { data: userLike } = await supabase
-          .from('likes')
-          .select('id')
-          .eq('post_id', post.id)
-          .eq('user_id', userId)
-          .single();
+        // Check if current user liked this post (guest: no like)
+        let userLike = null;
+        if (userId) {
+          const { data } = await supabase
+            .from('likes')
+            .select('id')
+            .eq('post_id', post.id)
+            .eq('user_id', userId)
+            .single();
+          userLike = data;
+        }
 
         return {
           ...post,
           likesCount: likesCount || 0,
           commentsCount: commentsCount || 0,
           isLiked: !!userLike,
-          isOwnPost: post.user_id === userId, // Add flag to identify own posts
+          isOwnPost: userId ? post.user_id === userId : false,
         };
       })
     );
@@ -325,7 +329,7 @@ router.get('/posts', authenticateToken, async (req, res) => {
 });
 
 // Like post
-router.post('/posts/:postId/like', authenticateToken, async (req, res) => {
+router.post('/posts/:postId/like', authenticateToken, requireNotGuest, async (req, res) => {
   try {
     const { postId } = req.params;
     const userId = req.user.userId;
@@ -373,7 +377,7 @@ router.post('/posts/:postId/like', authenticateToken, async (req, res) => {
 });
 
 // Comment on post
-router.post('/posts/:postId/comments', authenticateToken, async (req, res) => {
+router.post('/posts/:postId/comments', authenticateToken, requireNotGuest, async (req, res) => {
   try {
     const { postId } = req.params;
     const { content } = req.body;
@@ -405,8 +409,8 @@ router.post('/posts/:postId/comments', authenticateToken, async (req, res) => {
   }
 });
 
-// Get comments for a post with pagination
-router.get('/posts/:postId/comments', authenticateToken, async (req, res) => {
+// Get comments for a post with pagination (optional auth: guests can read)
+router.get('/posts/:postId/comments', optionalAuthenticateToken, async (req, res) => {
   try {
     const { postId } = req.params;
     const { page = 1, limit = 20 } = req.query;
@@ -545,7 +549,7 @@ router.get('/posts/:postId', async (req, res) => {
 });
 
 // Delete post (only by owner)
-router.delete('/posts/:postId', authenticateToken, async (req, res) => {
+router.delete('/posts/:postId', authenticateToken, requireNotGuest, async (req, res) => {
   try {
     const { postId } = req.params;
     const userId = req.user.userId;

@@ -1,6 +1,6 @@
 const express = require('express');
 const supabase = require('../config/supabase');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, optionalAuthenticateToken, requireNotGuest } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -17,12 +17,12 @@ router.get('/categories', (req, res) => {
   res.json({ categories: FORUM_CATEGORIES });
 });
 
-// GET /api/forum/categories/:slug/posts - list posts in category (paginated)
-router.get('/categories/:slug/posts', authenticateToken, async (req, res) => {
+// GET /api/forum/categories/:slug/posts - list posts in category (paginated, optional auth for guests)
+router.get('/categories/:slug/posts', optionalAuthenticateToken, async (req, res) => {
   try {
     const { slug } = req.params;
     const { page = 1, limit = 10, location } = req.query;
-    const userId = req.user.userId;
+    const userId = req.user ? req.user.userId : null;
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
     const offset = (pageNum - 1) * limitNum;
@@ -61,19 +61,23 @@ router.get('/categories/:slug/posts', authenticateToken, async (req, res) => {
           .select('*', { count: 'exact', head: true })
           .eq('post_id', post.id);
 
-        const { data: userLike } = await supabase
-          .from('forum_likes')
-          .select('id')
-          .eq('post_id', post.id)
-          .eq('user_id', userId)
-          .single();
+        let userLike = null;
+        if (userId) {
+          const { data } = await supabase
+            .from('forum_likes')
+            .select('id')
+            .eq('post_id', post.id)
+            .eq('user_id', userId)
+            .single();
+          userLike = data;
+        }
 
         return {
           ...post,
           likesCount: likesCount || 0,
           commentsCount: commentsCount || 0,
           isLiked: !!userLike,
-          isOwnPost: post.user_id === userId,
+          isOwnPost: userId ? post.user_id === userId : false,
         };
       })
     );
@@ -95,7 +99,7 @@ router.get('/categories/:slug/posts', authenticateToken, async (req, res) => {
 });
 
 // POST /api/forum/posts - create text post
-router.post('/posts', authenticateToken, async (req, res) => {
+router.post('/posts', authenticateToken, requireNotGuest, async (req, res) => {
   try {
     const { content, category_slug, location } = req.body;
     const userId = req.user.userId;
@@ -178,7 +182,7 @@ router.get('/posts/:postId', async (req, res) => {
 });
 
 // POST /api/forum/posts/:postId/like - toggle like
-router.post('/posts/:postId/like', authenticateToken, async (req, res) => {
+router.post('/posts/:postId/like', authenticateToken, requireNotGuest, async (req, res) => {
   try {
     const { postId } = req.params;
     const userId = req.user.userId;
@@ -215,7 +219,7 @@ router.post('/posts/:postId/like', authenticateToken, async (req, res) => {
 });
 
 // GET /api/forum/posts/:postId/comments
-router.get('/posts/:postId/comments', authenticateToken, async (req, res) => {
+router.get('/posts/:postId/comments', optionalAuthenticateToken, async (req, res) => {
   try {
     const { postId } = req.params;
     const { page = 1, limit = 20 } = req.query;
@@ -249,7 +253,7 @@ router.get('/posts/:postId/comments', authenticateToken, async (req, res) => {
 });
 
 // POST /api/forum/posts/:postId/comments
-router.post('/posts/:postId/comments', authenticateToken, async (req, res) => {
+router.post('/posts/:postId/comments', authenticateToken, requireNotGuest, async (req, res) => {
   try {
     const { postId } = req.params;
     const { content } = req.body;
@@ -280,7 +284,7 @@ router.post('/posts/:postId/comments', authenticateToken, async (req, res) => {
 });
 
 // DELETE /api/forum/posts/:postId - owner only
-router.delete('/posts/:postId', authenticateToken, async (req, res) => {
+router.delete('/posts/:postId', authenticateToken, requireNotGuest, async (req, res) => {
   try {
     const { postId } = req.params;
     const userId = req.user.userId;

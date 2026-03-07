@@ -4,7 +4,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { OAuth2Client } = require('google-auth-library');
 const supabase = require('../config/supabase');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, requireNotGuest } = require('../middleware/auth');
 const { body, validationResult } = require('express-validator');
 const { sendPasswordResetEmail, sendOtpEmail } = require('../utils/email');
 
@@ -15,6 +15,23 @@ const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const API_BASE = process.env.API_BASE_URL || process.env.BACKEND_URL || 'https://houseofjainz-o8g2v.ondigitalocean.app';
 const API_BASE_PATH = API_BASE.replace(/\/$/, '') + (API_BASE.includes('/api') ? '' : '/api');
 const GOOGLE_CALLBACK_URL = `${API_BASE_PATH}/auth/google/callback`;
+
+// Issue a view-only guest token (no auth required). Guest role can only read; writes return 401.
+router.get('/guest-token', (req, res) => {
+  try {
+    const token = jwt.sign(
+      { role: 'guest' },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+    res.json({
+      token,
+      user: { role: 'guest' },
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // Register
 router.post('/register', [
@@ -276,9 +293,12 @@ router.post('/verify-otp', [
   }
 });
 
-// Get current user
+// Get current user (guest token returns view-only user)
 router.get('/me', authenticateToken, async (req, res) => {
   try {
+    if (req.user.role === 'guest') {
+      return res.json({ user: { role: 'guest' } });
+    }
     const { data: user, error } = await supabase
       .from('users')
       .select('id, email, name, religion, phone, role, avatar_url, created_at')
@@ -300,7 +320,7 @@ router.get('/me', authenticateToken, async (req, res) => {
 router.get('/profile-picture', authenticateToken, (req, res) => {
   res.status(405).json({ error: 'Method not allowed. Use POST with body { imageBase64, mimeType? } to upload, or DELETE to remove.' });
 });
-router.delete('/profile-picture', authenticateToken, async (req, res) => {
+router.delete('/profile-picture', authenticateToken, requireNotGuest, async (req, res) => {
   try {
     const userId = req.user.userId;
     const { data: user, error } = await supabase
@@ -315,7 +335,7 @@ router.delete('/profile-picture', authenticateToken, async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-router.post('/profile-picture', authenticateToken, async (req, res) => {
+router.post('/profile-picture', authenticateToken, requireNotGuest, async (req, res) => {
   try {
     const userId = req.user.userId;
     let imageUrl = null;

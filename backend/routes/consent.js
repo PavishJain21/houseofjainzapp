@@ -1,12 +1,17 @@
 const express = require('express');
 const supabase = require('../config/supabase');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, requireNotGuest } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Get user's consent status
+// Get user's consent status (guest: no consents stored)
 router.get('/status', authenticateToken, async (req, res) => {
   try {
+    if (req.user.role === 'guest') {
+      const { data: documents } = await supabase.from('consent_documents').select('*').eq('is_active', true).order('effective_date', { ascending: false });
+      const consentStatus = { terms: { granted: false, needsConsent: true }, privacy: { granted: false, needsConsent: true }, cookies: { granted: false, needsConsent: true } };
+      return res.json({ consents: consentStatus, documents: documents || [] });
+    }
     const userId = req.user.userId;
 
     // Get all consents for the user
@@ -75,7 +80,7 @@ router.get('/status', authenticateToken, async (req, res) => {
 });
 
 // Grant consent
-router.post('/grant', authenticateToken, async (req, res) => {
+router.post('/grant', authenticateToken, requireNotGuest, async (req, res) => {
   try {
     const userId = req.user.userId;
     const { consentType, version, ipAddress, userAgent } = req.body;
@@ -203,7 +208,7 @@ router.post('/grant', authenticateToken, async (req, res) => {
 });
 
 // Revoke consent
-router.post('/revoke', authenticateToken, async (req, res) => {
+router.post('/revoke', authenticateToken, requireNotGuest, async (req, res) => {
   try {
     const userId = req.user.userId;
     const { consentType } = req.body;
@@ -285,7 +290,7 @@ router.get('/document/:type', async (req, res) => {
 });
 
 // Grant multiple consents (for onboarding)
-router.post('/grant-multiple', authenticateToken, async (req, res) => {
+router.post('/grant-multiple', authenticateToken, requireNotGuest, async (req, res) => {
   try {
     const userId = req.user.userId;
     const { consents, ipAddress, userAgent } = req.body; // consents: [{type, version}, ...]

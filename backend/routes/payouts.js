@@ -1,6 +1,6 @@
 const express = require('express');
 const supabase = require('../config/supabase');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, requireNotGuest } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -163,7 +163,7 @@ router.get('/eligible-orders', authenticateToken, async (req, res) => {
 });
 
 // Add or update bank details
-router.post('/bank-details', authenticateToken, async (req, res) => {
+router.post('/bank-details', authenticateToken, requireNotGuest, async (req, res) => {
   try {
     const userId = req.user.userId;
     const {
@@ -278,7 +278,7 @@ router.get('/bank-details', authenticateToken, async (req, res) => {
 });
 
 // Request payout
-router.post('/request', authenticateToken, async (req, res) => {
+router.post('/request', authenticateToken, requireNotGuest, async (req, res) => {
   try {
     const userId = req.user.userId;
     const { shopId, notes } = req.body;

@@ -20,6 +20,7 @@ import useFeatures from '../../context/FeatureContext';
 import api from '../../config/api';
 import AppBanner from '../../components/AppBanner';
 import { confirmAsync } from '../../utils/alert';
+import { requestLogin } from '../../utils/requestLogin';
 
 export default function ProfileScreen({ navigation }) {
   const { user, signOut, refreshUser } = useContext(AuthContext);
@@ -33,9 +34,42 @@ export default function ProfileScreen({ navigation }) {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   useEffect(() => {
+    if (!user) {
+      setCheckingShops(false);
+      return;
+    }
     if (isEnabled('seller')) checkSellerStatus();
     else setCheckingShops(false);
-  }, [isEnabled('seller')]);
+  }, [isEnabled('seller'), user]);
+
+  // Guest view: browse-only; Sign in / Register to do anything
+  if (!user) {
+    return (
+      <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]} contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 24 }}>
+        <View style={[styles.guestCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+          <Ionicons name="person-circle-outline" size={64} color={theme.colors.primary} style={{ marginBottom: 16 }} />
+          <Text style={[styles.guestTitle, { color: theme.colors.text }]}>{t('profile.guestTitle') || 'You’re browsing as a guest'}</Text>
+          <Text style={[styles.guestSubtitle, { color: theme.colors.textSecondary }]}>
+            {t('profile.guestSubtitle') || 'Sign in to post, like, comment, add to cart, and more.'}
+          </Text>
+          <TouchableOpacity
+            style={[styles.guestButton, { backgroundColor: theme.colors.primary }]}
+            onPress={() => requestLogin('Login')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.guestButtonText}>{t('auth.login') || 'Sign in'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.guestButtonSecondary, { borderColor: theme.colors.primary }]}
+            onPress={() => requestLogin('Register')}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.guestButtonSecondaryText, { color: theme.colors.primary }]}>{t('auth.register') || 'Create account'}</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    );
+  }
 
   const checkSellerStatus = async () => {
     setCheckingShops(true);
@@ -314,6 +348,49 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  guestCard: {
+    alignItems: 'center',
+    padding: 28,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  guestTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  guestSubtitle: {
+    fontSize: 15,
+    marginBottom: 24,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  guestButton: {
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 12,
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  guestButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  guestButtonSecondary: {
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 12,
+    borderWidth: 2,
+    width: '100%',
+    alignItems: 'center',
+  },
+  guestButtonSecondaryText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
   header: {
     backgroundColor: '#fff',

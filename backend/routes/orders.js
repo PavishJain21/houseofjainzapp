@@ -1,13 +1,13 @@
 const express = require('express');
 const supabase = require('../config/supabase');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, requireNotGuest } = require('../middleware/auth');
 const { notifyOrderPlaced, notifyOrderStatusChanged } = require('../utils/notifications');
 const { roundPrice } = require('../utils/commission');
 
 const router = express.Router();
 
 // Create order from cart
-router.post('/checkout', authenticateToken, async (req, res) => {
+router.post('/checkout', authenticateToken, requireNotGuest, async (req, res) => {
   try {
     const { addressId, paymentMethod } = req.body;
     const userId = req.user.userId;
@@ -197,9 +197,10 @@ router.post('/checkout', authenticateToken, async (req, res) => {
   }
 });
 
-// Get user orders
+// Get user orders (guest gets empty)
 router.get('/my-orders', authenticateToken, async (req, res) => {
   try {
+    if (req.user.role === 'guest') return res.json({ orders: [] });
     const userId = req.user.userId;
 
     const { data: orders, error } = await supabase
@@ -258,7 +259,7 @@ router.get('/:orderId', authenticateToken, async (req, res) => {
 });
 
 // Update order status by customer (for received orders)
-router.put('/:orderId/status', authenticateToken, async (req, res) => {
+router.put('/:orderId/status', authenticateToken, requireNotGuest, async (req, res) => {
   try {
     const { orderId } = req.params;
     const { status } = req.body;

@@ -1,12 +1,13 @@
 const express = require('express');
 const supabase = require('../config/supabase');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, requireNotGuest } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Get user addresses
+// Get user addresses (guest gets empty list)
 router.get('/', authenticateToken, async (req, res) => {
   try {
+    if (req.user.role === 'guest') return res.json({ addresses: [] });
     const userId = req.user.userId;
 
     const { data: addresses, error } = await supabase
@@ -26,7 +27,7 @@ router.get('/', authenticateToken, async (req, res) => {
 });
 
 // Add address
-router.post('/', authenticateToken, async (req, res) => {
+router.post('/', authenticateToken, requireNotGuest, async (req, res) => {
   try {
     const { name, phone, address_line1, address_line2, city, state, pincode, is_default } = req.body;
     const userId = req.user.userId;
@@ -69,7 +70,7 @@ router.post('/', authenticateToken, async (req, res) => {
 });
 
 // Update address
-router.put('/:addressId', authenticateToken, async (req, res) => {
+router.put('/:addressId', authenticateToken, requireNotGuest, async (req, res) => {
   try {
     const { addressId } = req.params;
     const { name, phone, address_line1, address_line2, city, state, pincode, is_default } = req.body;
@@ -124,7 +125,7 @@ router.put('/:addressId', authenticateToken, async (req, res) => {
 });
 
 // Delete address
-router.delete('/:addressId', authenticateToken, async (req, res) => {
+router.delete('/:addressId', authenticateToken, requireNotGuest, async (req, res) => {
   try {
     const { addressId } = req.params;
     const userId = req.user.userId;

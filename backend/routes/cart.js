@@ -1,12 +1,15 @@
 const express = require('express');
 const supabase = require('../config/supabase');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, requireNotGuest } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Get cart
+// Get cart (guest gets empty cart)
 router.get('/', authenticateToken, async (req, res) => {
   try {
+    if (req.user.role === 'guest') {
+      return res.json({ cartItems: [], total: 0 });
+    }
     const userId = req.user.userId;
 
     const { data: cartItems, error } = await supabase
@@ -30,7 +33,7 @@ router.get('/', authenticateToken, async (req, res) => {
 });
 
 // Add to cart
-router.post('/add', authenticateToken, async (req, res) => {
+router.post('/add', authenticateToken, requireNotGuest, async (req, res) => {
   try {
     const { productId, quantity } = req.body;
     const userId = req.user.userId;
@@ -145,7 +148,7 @@ router.post('/add', authenticateToken, async (req, res) => {
 });
 
 // Update cart item quantity
-router.put('/:itemId', authenticateToken, async (req, res) => {
+router.put('/:itemId', authenticateToken, requireNotGuest, async (req, res) => {
   try {
     const { itemId } = req.params;
     const { quantity } = req.body;
@@ -181,7 +184,7 @@ router.put('/:itemId', authenticateToken, async (req, res) => {
 });
 
 // Remove from cart
-router.delete('/:itemId', authenticateToken, async (req, res) => {
+router.delete('/:itemId', authenticateToken, requireNotGuest, async (req, res) => {
   try {
     const { itemId } = req.params;
     const userId = req.user.userId;
@@ -203,7 +206,7 @@ router.delete('/:itemId', authenticateToken, async (req, res) => {
 });
 
 // Clear cart
-router.delete('/', authenticateToken, async (req, res) => {
+router.delete('/', authenticateToken, requireNotGuest, async (req, res) => {
   try {
     const userId = req.user.userId;
 
