@@ -58,6 +58,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.06)',
     borderRadius: 10,
     padding: 3,
+    marginRight: 8,
   },
   pill: {
     paddingVertical: 6,

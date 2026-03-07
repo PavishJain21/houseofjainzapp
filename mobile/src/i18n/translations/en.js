@@ -256,5 +256,44 @@ export default {
     newOrder: 'New Order Received',
     orderStatusChanged: 'Order Status Updated',
   },
+
+  // Jain Festivals / Calendar
+  calendar: {
+    jainFestivalsTitle: 'Jain Festivals',
+    months: {
+      January: 'January',
+      February: 'February',
+      March: 'March',
+      April: 'April',
+      May: 'May',
+      June: 'June',
+      July: 'July',
+      August: 'August',
+      September: 'September',
+      October: 'October',
+      November: 'November',
+      December: 'December',
+    },
+    days: {
+      Sunday: 'Sunday',
+      Monday: 'Monday',
+      Tuesday: 'Tuesday',
+      Wednesday: 'Wednesday',
+      Thursday: 'Thursday',
+      Friday: 'Friday',
+      Saturday: 'Saturday',
+    },
+  },
+
+  // Bottom tab bar
+  tabs: {
+    community: 'Community',
+    forum: 'Forum',
+    sangh: 'Sangh',
+    calendar: 'Calendar',
+    marketplace: 'Marketplace',
+    cart: 'Cart',
+    profile: 'Profile',
+  },
 };
 

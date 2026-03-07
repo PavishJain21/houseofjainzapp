@@ -1,12 +1,14 @@
-import React from 'react';
+import React, { useContext, useLayoutEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
+import LanguageContext from '../../context/LanguageContext';
 import jainFestivals2026 from '../../data/jainFestivals2026';
 
 function formatDisplayDate(dateStr) {
@@ -18,9 +20,21 @@ function formatDisplayDate(dateStr) {
 }
 
 export default function JainFestivalsScreen() {
+  const navigation = useNavigation();
   const { theme } = useTheme();
+  const langContext = useContext(LanguageContext);
+  const language = langContext?.language ?? 'en';
+  const t = langContext?.t ?? ((key) => key);
   const { year, calendar, festivals } = jainFestivals2026;
   const colors = theme.colors || {};
+
+  useLayoutEffect(() => {
+    navigation.setOptions({ title: t('calendar.jainFestivalsTitle') });
+  }, [navigation, t]);
+
+  const getEventName = (event) => (language === 'hi' && event.name_hi ? event.name_hi : event.name);
+  const getMonthName = (monthKey) => t(`calendar.months.${monthKey}`);
+  const getDayName = (dayKey) => t(`calendar.days.${dayKey}`);
 
   return (
     <ScrollView
@@ -32,7 +46,7 @@ export default function JainFestivalsScreen() {
         <View style={styles.headerRow}>
           <Ionicons name="calendar" size={28} color={colors.primary || '#4CAF50'} />
           <View style={styles.headerText}>
-            <Text style={[styles.title, { color: colors.text || '#1a1a1a' }]}>{calendar} Festivals</Text>
+            <Text style={[styles.title, { color: colors.text || '#1a1a1a' }]}>{t('calendar.jainFestivalsTitle')}</Text>
             <Text style={[styles.year, { color: colors.textSecondary || '#666' }]}>{year}</Text>
           </View>
         </View>
@@ -44,7 +58,7 @@ export default function JainFestivalsScreen() {
           style={[styles.monthSection, { backgroundColor: colors.surface || '#fff', borderColor: colors.border || '#eee' }]}
         >
           <View style={[styles.monthHeader, { backgroundColor: colors.primary || '#4CAF50' }]}>
-            <Text style={styles.monthTitle}>{section.month}</Text>
+            <Text style={styles.monthTitle}>{getMonthName(section.month)}</Text>
           </View>
           {section.events.map((event, eventIndex) => (
             <View
@@ -58,8 +72,8 @@ export default function JainFestivalsScreen() {
                 <Text style={[styles.dateNum, { color: colors.primary || '#4CAF50' }]}>{formatDisplayDate(event.date)}</Text>
               </View>
               <View style={styles.eventInfo}>
-                <Text style={[styles.eventName, { color: colors.text || '#333' }]}>{event.name}</Text>
-                <Text style={[styles.eventDay, { color: colors.textMuted || '#888' }]}>{event.day}</Text>
+                <Text style={[styles.eventName, { color: colors.text || '#333' }]}>{getEventName(event)}</Text>
+                <Text style={[styles.eventDay, { color: colors.textMuted || '#888' }]}>{getDayName(event.day)}</Text>
               </View>
             </View>
           ))}

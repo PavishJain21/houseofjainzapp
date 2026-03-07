@@ -51,7 +51,7 @@ import AdminPostsScreen from './src/screens/admin/AdminPostsScreen';
 import AdminOrdersScreen from './src/screens/admin/AdminOrdersScreen';
 
 import { AuthContext } from './src/context/AuthContext';
-import { LanguageProvider } from './src/context/LanguageContext';
+import LanguageContext, { LanguageProvider } from './src/context/LanguageContext';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { ConsentProvider, ConsentContext } from './src/context/ConsentContext';
 import { FeatureProvider, useFeatures } from './src/context/FeatureContext';
@@ -70,6 +70,7 @@ import PublicPrivacyView from './src/screens/shared/PublicPrivacyView';
 import PublicChildSafetyView from './src/screens/shared/PublicChildSafetyView';
 import ChildSafetyScreen from './src/screens/consent/ChildSafetyScreen';
 import Logo from './src/components/Logo';
+import LanguageToggle from './src/components/LanguageToggle';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -108,11 +109,6 @@ function CommunityStack() {
           component={CreatePostScreen}
           options={{ title: 'Create Post' }}
         />
-        <Stack.Screen 
-          name="JainFestivals" 
-          component={JainFestivalsScreen}
-          options={{ title: 'Jain Festivals' }}
-        />
       </Stack.Navigator>
     </FeatureGuard>
   );
@@ -139,6 +135,21 @@ function ForumStack() {
         />
       </Stack.Navigator>
     </FeatureGuard>
+  );
+}
+
+function FestivalsStack() {
+  return (
+    <Stack.Navigator>
+      <Stack.Screen
+        name="JainFestivals"
+        component={JainFestivalsScreen}
+        options={{
+          title: 'Jain Festivals',
+          headerRight: () => <LanguageToggle />,
+        }}
+      />
+    </Stack.Navigator>
   );
 }
 
@@ -235,7 +246,10 @@ function ProfileStack() {
       <Stack.Screen 
         name="Profile" 
         component={ProfileScreen}
-        options={{ headerTitle: () => <ProfileHeaderTitle /> }}
+        options={{
+          headerTitle: () => <ProfileHeaderTitle />,
+          headerRight: () => <LanguageToggle />,
+        }}
       />
       <Stack.Screen 
         name="Orders" 
@@ -373,6 +387,8 @@ function AdminStack() {
 function MainTabs() {
   const { isEnabled } = useFeatures();
   const { theme } = useTheme();
+  const langContext = useContext(LanguageContext);
+  const t = langContext?.t ?? ((key) => key);
   const showCommunity = isEnabled('community');
   const showForum = isEnabled('forum');
   const showSangh = isEnabled('sangh');
@@ -390,6 +406,8 @@ function MainTabs() {
             iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
           } else if (route.name === 'SanghTab') {
             iconName = focused ? 'people-circle' : 'people-circle-outline';
+          } else if (route.name === 'CalendarTab') {
+            iconName = focused ? 'calendar' : 'calendar-outline';
           } else if (route.name === 'MarketplaceTab') {
             iconName = focused ? 'storefront' : 'storefront-outline';
           } else if (route.name === 'CartTab') {
@@ -409,21 +427,22 @@ function MainTabs() {
         headerShown: false,
       })}
     >
-      {showCommunity && <Tab.Screen name="CommunityTab" component={CommunityStack} options={{ title: 'Community' }} />}
-      {showForum && <Tab.Screen name="ForumTab" component={ForumStack} options={{ title: 'Forum' }} />}
-      {showSangh && <Tab.Screen name="SanghTab" component={SanghStack} options={{ title: 'Sangh' }} />}
-      {showMarketplace && <Tab.Screen name="MarketplaceTab" component={MarketplaceStack} options={{ title: 'Marketplace' }} />}
+      {showCommunity && <Tab.Screen name="CommunityTab" component={CommunityStack} options={{ title: t('tabs.community') }} />}
+      {showForum && <Tab.Screen name="ForumTab" component={ForumStack} options={{ title: t('tabs.forum') }} />}
+      {showSangh && <Tab.Screen name="SanghTab" component={SanghStack} options={{ title: t('tabs.sangh') }} />}
+      <Tab.Screen name="CalendarTab" component={FestivalsStack} options={{ title: t('tabs.calendar') }} />
+      {showMarketplace && <Tab.Screen name="MarketplaceTab" component={MarketplaceStack} options={{ title: t('tabs.marketplace') }} />}
       {showCart && (
         <Tab.Screen 
           name="CartTab" 
           component={CartStack} 
           options={({ route }) => ({
-            title: 'Cart',
+            title: t('tabs.cart'),
             tabBarBadge: route.params?.cartCount > 0 ? route.params.cartCount : undefined,
           })}
         />
       )}
-      <Tab.Screen name="ProfileTab" component={ProfileStack} options={{ title: 'Profile' }} />
+      <Tab.Screen name="ProfileTab" component={ProfileStack} options={{ title: t('tabs.profile') }} />
     </Tab.Navigator>
   );
 }

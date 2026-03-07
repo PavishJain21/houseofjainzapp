@@ -256,5 +256,44 @@ export default {
     newOrder: 'नया ऑर्डर प्राप्त',
     orderStatusChanged: 'ऑर्डर स्थिति अपडेट',
   },
+
+  // Jain Festivals / Calendar
+  calendar: {
+    jainFestivalsTitle: 'जैन त्यौहार',
+    months: {
+      January: 'जनवरी',
+      February: 'फ़रवरी',
+      March: 'मार्च',
+      April: 'अप्रैल',
+      May: 'मई',
+      June: 'जून',
+      July: 'जुलाई',
+      August: 'अगस्त',
+      September: 'सितंबर',
+      October: 'अक्टूबर',
+      November: 'नवंबर',
+      December: 'दिसंबर',
+    },
+    days: {
+      Sunday: 'रविवार',
+      Monday: 'सोमवार',
+      Tuesday: 'मंगलवार',
+      Wednesday: 'बुधवार',
+      Thursday: 'गुरुवार',
+      Friday: 'शुक्रवार',
+      Saturday: 'शनिवार',
+    },
+  },
+
+  // Bottom tab bar
+  tabs: {
+    community: 'कम्युनिटी',
+    forum: 'फोरम',
+    sangh: 'संघ',
+    calendar: 'कैलेंडर',
+    marketplace: 'मार्केटप्लेस',
+    cart: 'कार्ट',
+    profile: 'प्रोफाइल',
+  },
 };
 

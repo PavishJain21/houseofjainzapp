@@ -12,7 +12,10 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import LanguageContext from '../../context/LanguageContext';
-import { CONTACT_PAGE_URL } from '../../config/api';
+
+const CONTACT_EMAIL = 'info@houseofjainz.com';
+const GMAIL_COMPOSE_URL = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(CONTACT_EMAIL)}`;
+const MAILTO_URL = `mailto:${CONTACT_EMAIL}`;
 
 export default function ContactUsScreen() {
   const { theme } = useTheme();
@@ -20,12 +23,22 @@ export default function ContactUsScreen() {
   const colors = theme.colors || {};
 
   const openContactUrl = async () => {
+    const isWeb = Platform.OS === 'web' || (typeof window !== 'undefined' && typeof window.open === 'function');
     try {
-      const canOpen = await Linking.canOpenURL(CONTACT_PAGE_URL);
-      if (canOpen) {
-        await Linking.openURL(CONTACT_PAGE_URL);
+      if (isWeb) {
+        window.open(GMAIL_COMPOSE_URL, '_blank', 'noopener,noreferrer');
+        return;
+      }
+      const canOpenGmail = await Linking.canOpenURL(GMAIL_COMPOSE_URL);
+      if (canOpenGmail) {
+        await Linking.openURL(GMAIL_COMPOSE_URL);
       } else {
-        Alert.alert(t('common.error'), t('profile.contactUrlNotSupported'));
+        const canOpenMailto = await Linking.canOpenURL(MAILTO_URL);
+        if (canOpenMailto) {
+          await Linking.openURL(MAILTO_URL);
+        } else {
+          Alert.alert(t('common.error'), t('profile.contactUrlNotSupported'));
+        }
       }
     } catch (err) {
       Alert.alert(t('common.error'), err.message || t('profile.contactOpenFailed'));
