@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS shops (
     location VARCHAR(255) NOT NULL,
     address TEXT,
     phone VARCHAR(20),
+    contact_name VARCHAR(255),
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()

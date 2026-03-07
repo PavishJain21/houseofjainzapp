@@ -105,24 +105,58 @@ router.get('/shops', authenticateToken, async (req, res) => {
   }
 });
 
-// Create shop
+// Create shop (with optional seller contact and bank details for onboarding)
 router.post('/shops', authenticateToken, async (req, res) => {
   try {
-    const { name, description, location, address, phone } = req.body;
+    const {
+      name,
+      description,
+      location,
+      address,
+      phone,
+      contactName,
+      // Bank details (collected at shop onboarding for payouts)
+      accountHolderName,
+      bankAccountNumber,
+      ifscCode,
+      bankName,
+      branchName,
+    } = req.body;
     const userId = req.user.userId;
 
-    // Shop creation allowed (subscription requirements removed)
+    // Required for shop
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: 'Shop name is required' });
+    }
+    if (!location || !location.trim()) {
+      return res.status(400).json({ error: 'Location is required' });
+    }
+
+    // Bank details required at onboarding
+    if (!accountHolderName || !accountHolderName.trim()) {
+      return res.status(400).json({ error: 'Account holder name is required' });
+    }
+    if (!bankAccountNumber || !String(bankAccountNumber).trim()) {
+      return res.status(400).json({ error: 'Bank account number is required' });
+    }
+    if (!ifscCode || !String(ifscCode).trim()) {
+      return res.status(400).json({ error: 'IFSC code is required' });
+    }
+    if (!phone || !String(phone).trim()) {
+      return res.status(400).json({ error: 'Seller contact phone is required' });
+    }
 
     const { data: shop, error } = await supabase
       .from('shops')
       .insert([
         {
           owner_id: userId,
-          name,
-          description,
-          location,
-          address,
-          phone,
+          name: name.trim(),
+          description: (description && description.trim()) || null,
+          location: location.trim(),
+          address: (address && address.trim()) || null,
+          phone: String(phone).trim(),
+          contact_name: (contactName && contactName.trim()) || null,
           is_active: true,
           created_at: new Date().toISOString()
         }
@@ -132,6 +166,55 @@ router.post('/shops', authenticateToken, async (req, res) => {
 
     if (error) {
       return res.status(400).json({ error: error.message });
+    }
+
+    // Save bank details to seller_bank_details (for payouts) if table exists
+    const ifscTrimmed = String(ifscCode).trim().toUpperCase();
+    const bankAccTrimmed = String(bankAccountNumber).trim();
+    try {
+      const { data: existing } = await supabase
+        .from('seller_bank_details')
+        .select('id')
+        .eq('seller_id', userId)
+        .eq('bank_account_number', bankAccTrimmed);
+
+      if (existing && existing.length > 0) {
+        await supabase
+          .from('seller_bank_details')
+          .update({
+            account_holder_name: accountHolderName.trim(),
+            ifsc_code: ifscTrimmed,
+            bank_name: (bankName && bankName.trim()) || null,
+            branch_name: (branchName && branchName.trim()) || null,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existing[0].id);
+      } else {
+        await supabase
+          .from('seller_bank_details')
+          .update({ is_primary: false })
+          .eq('seller_id', userId);
+
+        await supabase
+          .from('seller_bank_details')
+          .insert([
+            {
+              seller_id: userId,
+              account_holder_name: accountHolderName.trim(),
+              bank_account_number: bankAccTrimmed,
+              ifsc_code: ifscTrimmed,
+              bank_name: (bankName && bankName.trim()) || null,
+              branch_name: (branchName && branchName.trim()) || null,
+              account_type: 'savings',
+              is_verified: false,
+              is_primary: true,
+              created_at: new Date().toISOString()
+            }
+          ]);
+      }
+    } catch (bankErr) {
+      console.warn('Shop created but bank details save failed (seller_bank_details may not exist):', bankErr.message);
+      // Shop is already created; don't fail the request
     }
 
     res.status(201).json({ shop });

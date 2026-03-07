@@ -19,6 +19,12 @@ export default function CreateShopScreen({ navigation }) {
   const [location, setLocation] = useState('');
   const [address, setAddress] = useState('');
   const [phone, setPhone] = useState('');
+  const [contactName, setContactName] = useState('');
+  const [accountHolderName, setAccountHolderName] = useState('');
+  const [bankAccountNumber, setBankAccountNumber] = useState('');
+  const [ifscCode, setIfscCode] = useState('');
+  const [bankName, setBankName] = useState('');
+  const [branchName, setBranchName] = useState('');
   const [loading, setLoading] = useState(false);
 
   const getLocation = async () => {
@@ -80,6 +86,22 @@ export default function CreateShopScreen({ navigation }) {
       Alert.alert('Error', 'Please enter location');
       return;
     }
+    if (!phone.trim()) {
+      Alert.alert('Error', 'Please enter seller contact phone number');
+      return;
+    }
+    if (!accountHolderName.trim()) {
+      Alert.alert('Error', 'Please enter account holder name');
+      return;
+    }
+    if (!bankAccountNumber.trim()) {
+      Alert.alert('Error', 'Please enter bank account number');
+      return;
+    }
+    if (!ifscCode.trim()) {
+      Alert.alert('Error', 'Please enter IFSC code');
+      return;
+    }
 
     setLoading(true);
     try {
@@ -88,7 +110,13 @@ export default function CreateShopScreen({ navigation }) {
         description: description.trim() || null,
         location: location.trim(),
         address: address.trim() || null,
-        phone: phone.trim() || null,
+        phone: phone.trim(),
+        contactName: contactName.trim() || null,
+        accountHolderName: accountHolderName.trim(),
+        bankAccountNumber: bankAccountNumber.trim(),
+        ifscCode: ifscCode.trim().toUpperCase(),
+        bankName: bankName.trim() || null,
+        branchName: branchName.trim() || null,
       });
 
       const shopId = response.data.shop.id;
@@ -172,13 +200,61 @@ export default function CreateShopScreen({ navigation }) {
           textAlignVertical="top"
         />
 
+        <Text style={styles.sectionLabel}>Seller contact details</Text>
         <TextInput
           style={styles.input}
-          placeholder="Phone Number (Optional)"
+          placeholder="Contact person name (Optional)"
+          placeholderTextColor="#666"
+          value={contactName}
+          onChangeText={setContactName}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Phone Number *"
           placeholderTextColor="#666"
           value={phone}
           onChangeText={setPhone}
           keyboardType="phone-pad"
+        />
+
+        <Text style={styles.sectionLabel}>Bank account (for payouts)</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Account holder name *"
+          placeholderTextColor="#666"
+          value={accountHolderName}
+          onChangeText={setAccountHolderName}
+          autoCapitalize="words"
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Bank account number *"
+          placeholderTextColor="#666"
+          value={bankAccountNumber}
+          onChangeText={setBankAccountNumber}
+          keyboardType="number-pad"
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="IFSC code *"
+          placeholderTextColor="#666"
+          value={ifscCode}
+          onChangeText={(text) => setIfscCode(text.toUpperCase())}
+          autoCapitalize="characters"
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Bank name (Optional)"
+          placeholderTextColor="#666"
+          value={bankName}
+          onChangeText={setBankName}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Branch name (Optional)"
+          placeholderTextColor="#666"
+          value={branchName}
+          onChangeText={setBranchName}
         />
 
         <TouchableOpacity
@@ -203,6 +279,13 @@ const styles = StyleSheet.create({
   },
   form: {
     padding: 15,
+  },
+  sectionLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginTop: 8,
+    marginBottom: 10,
   },
   input: {
     backgroundColor: '#fff',
