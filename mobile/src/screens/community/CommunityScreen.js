@@ -28,6 +28,7 @@ import { confirmAsync } from '../../utils/alert';
 import { useTheme } from '../../context/ThemeContext';
 import AppBanner from '../../components/AppBanner';
 import Logo from '../../components/Logo';
+import LanguageToggle from '../../components/LanguageToggle';
 
 export default function CommunityScreen({ navigation, route }) {
   const { user } = useContext(AuthContext);
@@ -438,6 +439,7 @@ export default function CommunityScreen({ navigation, route }) {
       <View style={[styles.header, { backgroundColor: theme.colors.surface, shadowColor: theme.colors.shadow }]}>
         <Logo size="small" />
         <Text style={[styles.headerTitle, { color: theme.colors.text }]}>{t('community.title')}</Text>
+        <LanguageToggle />
         <TouchableOpacity
           style={styles.headerRightButton}
           onPress={() => navigation.navigate('JainFestivals')}

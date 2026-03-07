@@ -12,6 +12,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../config/api';
 import Logo from '../../components/Logo';
+import LanguageToggle from '../../components/LanguageToggle';
 import { useTheme } from '../../context/ThemeContext';
 
 export default function SanghLandingScreen({ navigation, route }) {
@@ -137,6 +138,7 @@ export default function SanghLandingScreen({ navigation, route }) {
       <View style={[styles.header, { backgroundColor: theme.colors.surface }]}>
         <Logo size="small" />
         <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Sangh</Text>
+        <LanguageToggle />
       </View>
       <View style={styles.subtitleRow}>
         <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
@@ -198,7 +200,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingTop: 25,
   },
-  headerTitle: { fontSize: 20, fontWeight: '700', marginLeft: 12 },
+  headerTitle: { flex: 1, fontSize: 20, fontWeight: '700', marginLeft: 12 },
   subtitleRow: { paddingHorizontal: 16, paddingBottom: 12 },
   subtitle: { fontSize: 14 },
   list: { padding: 16, paddingBottom: 90 },

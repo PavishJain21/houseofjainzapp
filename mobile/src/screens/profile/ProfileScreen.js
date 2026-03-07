@@ -19,6 +19,7 @@ import { useTheme } from '../../context/ThemeContext';
 import useFeatures from '../../context/FeatureContext';
 import api from '../../config/api';
 import AppBanner from '../../components/AppBanner';
+import LanguageToggle from '../../components/LanguageToggle';
 import { confirmAsync } from '../../utils/alert';
 
 export default function ProfileScreen({ navigation }) {
@@ -163,6 +164,10 @@ export default function ProfileScreen({ navigation }) {
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <View style={[styles.topBar, { backgroundColor: theme.colors.surface }]}>
+        <View style={styles.topBarSpacer} />
+        <LanguageToggle />
+      </View>
       <AppBanner
         title="House of Jainz"
         subtitle="Your profile, orders, and preferences in one place."
@@ -320,6 +325,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 16,
+    paddingTop: 48,
+    paddingBottom: 8,
+  },
+  topBarSpacer: {
+    flex: 1,
   },
   header: {
     backgroundColor: '#fff',

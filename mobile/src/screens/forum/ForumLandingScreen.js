@@ -12,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../config/api';
 import Logo from '../../components/Logo';
+import LanguageToggle from '../../components/LanguageToggle';
 
 const CATEGORY_ICONS = {
   'rentals': 'home-outline',
@@ -76,6 +77,9 @@ export default function ForumLandingScreen({ navigation }) {
         <View style={styles.headerContent}>
           <Text style={styles.headerTitle}>Forum</Text>
           <Text style={styles.headerSubtitle}>Discuss, share & connect by category</Text>
+        </View>
+        <View style={styles.headerRight}>
+          <LanguageToggle />
         </View>
       </View>
 
@@ -150,6 +154,9 @@ const styles = StyleSheet.create({
   headerContent: {
     flex: 1,
     justifyContent: 'center',
+  },
+  headerRight: {
+    marginLeft: 8,
   },
   headerTitle: {
     fontSize: 22,
